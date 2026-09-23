@@ -56,11 +56,11 @@ export default function MapView({ user, nearest, all, dark, tiles, darkTiles, ac
     const url = dark ? darkTiles : tiles;
     const layer = L.tileLayer(url, {
       maxZoom: 19,
-      attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors © <a href="https://carto.com/">CARTO</a>',
+      attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
     });
     layer.addTo(map);
     layerRef.current = layer;
-    // dark filter tweak for OSM standard in dark mode if carto fails — keep native dark tiles
+    // Both themes use OpenStreetMap tiles by default; the app chrome supplies night mode.
     const container = map.getContainer();
     container.style.background = dark ? "#0e100e" : "#e8e4d8";
   }, [dark, tiles, darkTiles]);

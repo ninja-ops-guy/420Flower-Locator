@@ -107,7 +107,18 @@ async function fetchFromCompassApi(
   base.searchParams.set("lon", coarseCoordinate(lon).toFixed(2));
   base.searchParams.set("radiusMiles", Math.max(1, Math.ceil(radiusM / 1609.344)).toString());
 
-  const res = await fetch(base, { headers: { Accept: "application/json" }, signal });
+  const ctrl = new AbortController();
+  const timeoutId = window.setTimeout(() => ctrl.abort(), 8000);
+  const forwardAbort = () => ctrl.abort();
+  signal?.addEventListener("abort", forwardAbort, { once: true });
+
+  let res: Response;
+  try {
+    res = await fetch(base, { headers: { Accept: "application/json" }, signal: ctrl.signal });
+  } finally {
+    window.clearTimeout(timeoutId);
+    signal?.removeEventListener("abort", forwardAbort);
+  }
   if (!res.ok) throw new Error(`COMPASS API ${res.status}`);
   const json = (await res.json()) as { elements?: OverpassElement[] };
   const deduped = new Map<string, Dispensary>();

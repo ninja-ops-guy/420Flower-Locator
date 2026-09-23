@@ -221,6 +221,7 @@ export default function App() {
 
   const useDemo = useCallback((lat: number, lon: number, label: string) => {
     stopWatch();
+    didAuto.current = false;
     setPerm("GRANTED");
     setLocError(null);
     setIsDemo(true);
@@ -419,8 +420,10 @@ export default function App() {
   useEffect(() => {
     if (fix && !didAuto.current) {
       didAuto.current = true;
-      searchedCenter.current = searchedCenter.current ?? null;
-      runSearch(fix.lat, fix.lon);
+      // A cached search center must never suppress the first search of a new
+      // browser session. The user's fresh GPS fix is authoritative.
+      searchedCenter.current = null;
+      runSearch(fix.lat, fix.lon, { force: true });
     }
   }, [fix, runSearch]);
 

@@ -77,6 +77,7 @@ export function normalizeElement(
     address: buildAddress(tags),
     openingHours: tags.opening_hours,
     website: tags.website ?? tags["contact:website"] ?? tags.url,
+    phone: tags.phone ?? tags["contact:phone"],
     recreational: triState(tags["cannabis:recreational"]),
     medical: triState(tags["cannabis:medical"]),
     cbd: triState(tags["cannabis:cbd"]),

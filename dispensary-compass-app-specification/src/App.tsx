@@ -52,6 +52,7 @@ function loadProviders(): ProviderConfig {
         darkTiles: typeof p.darkTiles === "string" && p.darkTiles ? p.darkTiles : DEFAULT_PROVIDERS.darkTiles,
         poiEndpoints: Array.isArray(p.poiEndpoints) && p.poiEndpoints.length > 0 ? p.poiEndpoints : DEFAULT_PROVIDERS.poiEndpoints,
         geocoderEndpoint: typeof p.geocoderEndpoint === "string" && p.geocoderEndpoint ? p.geocoderEndpoint : DEFAULT_PROVIDERS.geocoderEndpoint,
+        apiEndpoint: typeof p.apiEndpoint === "string" ? p.apiEndpoint : DEFAULT_PROVIDERS.apiEndpoint,
       };
     }
   } catch { /* noop */ }
@@ -298,7 +299,7 @@ export default function App() {
           const next = SEARCH_RADII_MILES[SEARCH_RADII_MILES.indexOf(radiusMiles) + 1];
           setTierNote(next ? `Nothing in ${radiusMiles} mi — expanding to ${next} mi…` : `Nothing in ${radiusMiles} mi…`);
         } else setTierNote(`Found ${count} in ${radiusMiles} mi`);
-      }, ctrl.signal);
+      }, ctrl.signal, providers.apiEndpoint);
       setLastEndpoint(r.endpoint);
       setTiersTried(r.tiersTried);
       setPois(r.pois);
@@ -321,7 +322,7 @@ export default function App() {
       setSearching(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [providers.poiEndpoints, meta?.at, persistCache]);
+  }, [providers.poiEndpoints, providers.apiEndpoint, meta?.at, persistCache]);
 
   // auto search on first fix
   const didAuto = useRef(false);

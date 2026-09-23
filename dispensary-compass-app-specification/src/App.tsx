@@ -36,7 +36,7 @@ const DEMOS = [
 const LS_THEME = "compass:theme";
 const LS_POIS = "compass:pois-v1";
 const LS_META = "compass:meta-v1";
-const LS_PROV = "compass:providers-v1";
+const LS_PROV = "compass:providers-v2";
 
 function loadTheme(): ThemeMode {
   try { const t = localStorage.getItem(LS_THEME); if (t === "light" || t === "dark" || t === "system") return t; } catch { /* noop */ }

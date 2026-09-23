@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>COMPASS Privacy</title>
-  <meta name="referrer" content="no-referrer" />
+  <meta name="referrer" content="strict-origin-when-cross-origin" />
   <style>
     body{max-width:760px;margin:0 auto;padding:40px 20px;font:16px/1.65 system-ui,sans-serif;background:#0e100e;color:#eef3ec}
     a{color:#6ee7b7} h1,h2{line-height:1.15} code{background:#1d241f;padding:.15rem .35rem;border-radius:.3rem}
@@ -14,28 +14,32 @@
 <body>
   <a href="./">← Back to COMPASS</a>
   <h1>Privacy</h1>
-  <p class="muted">Effective September 23, 2026</p>
+  <p class="muted">Updated September 23, 2026 · merchant notice version <code>merchant-privacy-v2</code></p>
+  <div class="card"><strong>Consumer discovery remains account-free.</strong> Merchant claim collection and merchant analytics are separately controlled features. A database connection by itself does not activate them. Billing remains disabled.</div>
 
-  <div class="card">
-    <strong>Current production behavior:</strong> COMPASS does not require an account, does not run advertising analytics, and does not intentionally maintain a COMPASS-owned history of your precise location. Nearby-business discovery prefers a COMPASS-controlled gateway using a coarse search center; exact distance and bearing calculations remain in your browser.
-  </div>
+  <h2>Location and map providers</h2>
+  <p>Your browser supplies location after you grant permission. COMPASS calculates exact distance and bearing locally. Its preferred search gateway receives a center rounded to approximately 0.02 degrees. That is coarse location, not anonymity. The public-provider fallback can send the search coordinates directly to Overpass. OpenStreetMap tile requests also reveal the map area requested. External providers receive network metadata such as IP addresses and apply their own policies.</p>
+  <p>Location permission can be revoked through your browser or device settings. COMPASS does not require background location or maintain a user account location history.</p>
 
-  <h2>Location</h2>
-  <p>Your browser may provide foreground location after you grant permission. COMPASS uses that location in the browser to calculate distance and bearing and to request nearby map data. Location permission can be revoked through your browser or operating-system settings.</p>
+  <h2>Information stored in your browser</h2>
+  <p>The application stores theme settings, provider settings, cached business locations and recent search metadata, including the last search center. This is not a promise that no location information is stored locally. Use the in-app cache controls or your browser's site-data controls to remove it. The offline application shell is stored separately by the service worker.</p>
 
-  <h2>Local storage</h2>
-  <p>The app may store theme preference, provider configuration, cached points of interest, and recent search metadata in your browser so it can start faster and degrade more gracefully when connectivity is poor.</p>
+  <h2>Merchant claims — only when enabled</h2>
+  <p>Submitting a claim sends the business's map identifier and coordinates, business name, your name, business email, role, optional business website, phone and notes to the COMPASS API. The claim form asks for your confirmation that you are authorized to represent the business and agree to use of those details for verification. Do not include identity documents, financial details, medical information or other sensitive personal information in notes.</p>
+  <p>Confirmed submissions are stored server-side in Neon PostgreSQL as pending review. A claim does not automatically grant account access, a verification badge, profile-editing rights or paid benefits. Request identifiers allow retrying an uncertain submission without intentionally creating another record.</p>
 
-  <h2>External map infrastructure</h2>
-  <p>COMPASS uses OpenStreetMap tiles for maps. Nearby-business discovery prefers the COMPASS API, which receives a search center rounded to approximately 0.02 degrees rather than the browser's exact GPS fix, then queries OpenStreetMap/Overpass data. Exact distance and bearing are recomputed locally in the browser. If the controlled API is unavailable, the application may fall back to public Overpass infrastructure for continuity; that fallback can receive the coordinates needed to perform the search. External infrastructure is governed by its own policies and may receive network metadata such as your IP address.</p>
+  <h2>Merchant analytics — separate from claims</h2>
+  <p>The Neon analytics implementation remains disabled until its separate activation and consumer-consent requirements are met. If activated, it is designed to count business-related interactions by UTC day, business identifier and event type. It does not need consumer GPS coordinates, email addresses or a persistent visitor identifier in the event record. The API requires an explicit consent signal and respects Global Privacy Control and Do Not Track request signals. The existing consumer interface does not yet offer an analytics opt-in, so analytics should not be activated.</p>
+  <p>Interaction counts are not verified unique people, purchases or visits to a store.</p>
 
-  <h2>Accounts, payments, and sales</h2>
-  <p>The current consumer application has no user account system and does not sell cannabis, process cannabis payments, or place cannabis orders.</p>
+  <h2>Abuse prevention and hosting</h2>
+  <p>When merchant writes are enabled, COMPASS derives a day-scoped, keyed pseudonymous value from the client network address to enforce shared request limits. The raw address is not stored in merchant tables by this code. Pseudonymization is not the same as anonymization. Expired rate-limit records and 24-hour event retry receipts are pruned during requests; a separate retention and cleanup process must be established before external onboarding.</p>
+  <p>GitHub Pages hosts the consumer interface, Vercel hosts the API, and Neon is the selected merchant database provider. These services may process request, connection, security and backup metadata under their own policies. Application-level choices do not eliminate infrastructure logging.</p>
 
-  <h2>Future services</h2>
-  <p>COMPASS now operates a first-party POI gateway for coarse nearby searches. Merchant accounts, advertising analytics, billing, or other additional data processing are not part of the current consumer service. This notice will be updated before those features become part of production.</p>
+  <h2>Retention and requests</h2>
+  <p>A merchant-contact retention schedule, private support contact and deletion/review process must be finalized before accepting external pilot claims. Until then, merchant activation remains gated. Do not post private claim details or credentials in a public repository issue.</p>
 
-  <h2>Questions</h2>
-  <p>Use the project repository's public contact channels for privacy questions.</p>
+  <h2>Accounts and payments</h2>
+  <p>The current consumer application has no consumer account system and does not sell cannabis, process cannabis payments or place orders. The merchant database work does not activate subscription billing.</p>
 </body>
 </html>

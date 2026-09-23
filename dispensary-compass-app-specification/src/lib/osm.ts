@@ -5,6 +5,7 @@ export interface ProviderConfig {
   darkTiles: string;
   poiEndpoints: string[];
   geocoderEndpoint: string;
+  apiEndpoint?: string;
 }
 
 export const DEFAULT_PROVIDERS: ProviderConfig = {
@@ -16,6 +17,7 @@ export const DEFAULT_PROVIDERS: ProviderConfig = {
     "https://overpass.nchc.org.tw/api/interpreter",
   ],
   geocoderEndpoint: "https://nominatim.openstreetmap.org",
+  apiEndpoint: "",
 };
 
 export const SEARCH_RADII_MILES = [10, 25, 50];
@@ -88,13 +90,54 @@ function buildQuery(lat: number, lon: number, radiusM: number): string {
   return `[out:json][timeout:25];(nwr["shop"="cannabis"](around:${r},${lat},${lon}););out center 60;`;
 }
 
+function coarseCoordinate(value: number): number {
+  return Math.round(value / 0.02) * 0.02;
+}
+
+async function fetchFromCompassApi(
+  apiEndpoint: string,
+  lat: number,
+  lon: number,
+  radiusM: number,
+  signal?: AbortSignal
+): Promise<{ pois: Dispensary[]; endpoint: string }> {
+  const base = new URL(apiEndpoint);
+  if (base.protocol !== "https:") throw new Error("COMPASS API must use HTTPS");
+  base.searchParams.set("lat", coarseCoordinate(lat).toFixed(2));
+  base.searchParams.set("lon", coarseCoordinate(lon).toFixed(2));
+  base.searchParams.set("radiusMiles", Math.max(1, Math.ceil(radiusM / 1609.344)).toString());
+
+  const res = await fetch(base, { headers: { Accept: "application/json" }, signal });
+  if (!res.ok) throw new Error(`COMPASS API ${res.status}`);
+  const json = (await res.json()) as { elements?: OverpassElement[] };
+  const deduped = new Map<string, Dispensary>();
+  for (const el of Array.isArray(json.elements) ? json.elements : []) {
+    const d = normalizeElement(el, lat, lon);
+    if (d) deduped.set(d.id, d);
+  }
+  return {
+    pois: [...deduped.values()].sort((a, b) => a.distanceMeters - b.distanceMeters),
+    endpoint: base.origin,
+  };
+}
+
 export async function fetchDispensaries(
   lat: number,
   lon: number,
   radiusM: number,
   endpoints: string[],
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  apiEndpoint?: string
 ): Promise<{ pois: Dispensary[]; endpoint: string }> {
+  if (apiEndpoint) {
+    try {
+      return await fetchFromCompassApi(apiEndpoint, lat, lon, radiusM, signal);
+    } catch (e) {
+      if (signal?.aborted) throw e;
+      // Controlled API is preferred; public mirrors remain a continuity fallback.
+    }
+  }
+
   const body = `data=${encodeURIComponent(buildQuery(lat, lon, radiusM))}`;
   let lastErr: unknown = null;
 
@@ -169,7 +212,8 @@ export async function searchExpanding(
   lon: number,
   endpoints: string[],
   onTier: (radiusMiles: number, count: number) => void,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  apiEndpoint?: string
 ): Promise<{
   pois: Dispensary[];
   radiusMiles: number;
@@ -183,7 +227,7 @@ export async function searchExpanding(
     const radiusM = SEARCH_RADII_METERS[i];
     const radiusMiles = SEARCH_RADII_MILES[i];
     tiersTried.push(radiusMiles);
-    const r = await fetchDispensaries(lat, lon, radiusM, endpoints, signal);
+    const r = await fetchDispensaries(lat, lon, radiusM, endpoints, signal, apiEndpoint);
     endpoint = r.endpoint;
     onTier(radiusMiles, r.pois.length);
     if (r.pois.length > 0) {

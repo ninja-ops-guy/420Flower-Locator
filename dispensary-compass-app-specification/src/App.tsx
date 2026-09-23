@@ -164,44 +164,58 @@ export default function App() {
     setLocError(null);
     stopWatch();
 
-    let settled = false;
-    const acceptFix = (p: GeolocationPosition) => {
-      settled = true;
-      setPerm("GRANTED");
-      setLocError(null);
-      setIsDemo(false);
-      setDemoLabel(null);
-      applyFix(p.coords.latitude, p.coords.longitude, p.coords.accuracy ?? null);
-    };
+    let hasFix = false;
+    let highAccuracyStarted = false;
+
     const explainError = (e: GeolocationPositionError, watching = false) => {
       if (e.code === e.PERMISSION_DENIED) {
+        stopWatch();
         setPerm("DENIED");
-        setLocError("Location access is blocked. Enable location for this site in your browser settings, then tap Re-request GPS.");
+        setLocError("iPhone blocked location for COMPASS. In Safari tap the page menu → Website Settings → Location → Allow, or open Settings → Privacy & Security → Location Services → Safari Websites. Then reload COMPASS.");
       } else if (e.code === e.POSITION_UNAVAILABLE) {
-        if (!settled) setPerm("UNKNOWN");
-        setLocError("Your phone could not determine a location yet. Make sure Location Services are on and try again.");
-      } else {
-        if (!settled) setPerm("UNKNOWN");
+        if (!hasFix) setPerm("UNKNOWN");
+        setLocError("Your iPhone has not produced a location fix yet. Confirm Location Services are enabled, then try again outdoors or near a window.");
+      } else if (!hasFix) {
+        setPerm("UNKNOWN");
         setLocError(watching
-          ? "Live GPS updates paused. COMPASS will keep the last valid fix; tap Re-request GPS to reconnect."
+          ? "Live location did not start. Tap Re-request GPS to try again."
           : "Location is taking longer than expected. Tap Re-request GPS to try again.");
       }
     };
 
-    // Start the live watcher immediately. On mobile, waiting for a separate
-    // high-accuracy one-shot fix first can prevent tracking from ever starting.
-    watchId.current = navigator.geolocation.watchPosition(
-      acceptFix,
-      (e) => explainError(e, true),
-      { enableHighAccuracy: true, maximumAge: 3000, timeout: 30000 }
-    );
+    const startHighAccuracyWatch = () => {
+      if (highAccuracyStarted) return;
+      highAccuracyStarted = true;
+      stopWatch();
+      watchId.current = navigator.geolocation.watchPosition(
+        (p) => {
+          hasFix = true;
+          setPerm("GRANTED");
+          setLocError(null);
+          setIsDemo(false);
+          setDemoLabel(null);
+          applyFix(p.coords.latitude, p.coords.longitude, p.coords.accuracy ?? null);
+        },
+        (e) => explainError(e, true),
+        { enableHighAccuracy: true, maximumAge: 3000, timeout: 30000 }
+      );
+    };
 
-    // Also request a fast cached/network fix so the UI can become useful while
-    // the GPS radio is still converging on an accurate position.
+    // iOS Safari is most reliable when the permission-producing call is a
+    // getCurrentPosition invocation made directly from the user's tap. Start
+    // the long-running watcher only after that call succeeds.
     navigator.geolocation.getCurrentPosition(
-      acceptFix,
-      (e) => { if (!settled) explainError(e, false); },
-      { enableHighAccuracy: false, maximumAge: 60000, timeout: 10000 }
+      (p) => {
+        hasFix = true;
+        setPerm("GRANTED");
+        setLocError(null);
+        setIsDemo(false);
+        setDemoLabel(null);
+        applyFix(p.coords.latitude, p.coords.longitude, p.coords.accuracy ?? null);
+        startHighAccuracyWatch();
+      },
+      (e) => explainError(e, false),
+      { enableHighAccuracy: false, maximumAge: 0, timeout: 20000 }
     );
   }, [applyFix, stopWatch]);
 

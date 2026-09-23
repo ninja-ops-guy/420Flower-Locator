@@ -97,40 +97,67 @@ export async function fetchDispensaries(
 ): Promise<{ pois: Dispensary[]; endpoint: string }> {
   const body = `data=${encodeURIComponent(buildQuery(lat, lon, radiusM))}`;
   let lastErr: unknown = null;
+
   for (const ep of endpoints) {
+    let parsed: URL;
+    try {
+      parsed = new URL(ep);
+      if (parsed.protocol !== "https:") {
+        lastErr = new Error(`Refusing non-HTTPS Overpass endpoint: ${ep}`);
+        continue;
+      }
+    } catch {
+      lastErr = new Error(`Invalid Overpass endpoint: ${ep}`);
+      continue;
+    }
+
+    const requestController = new AbortController();
+    const timeoutId = window.setTimeout(() => requestController.abort(), 12000);
+    const forwardAbort = () => requestController.abort();
+    signal?.addEventListener("abort", forwardAbort, { once: true });
+
     try {
       const res = await fetch(ep, {
         method: "POST",
         headers: {
           "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
+          "Accept": "application/json",
         },
         body,
-        signal,
+        signal: requestController.signal,
       });
+
       if (!res.ok) {
-        // 429 / 504 are common on public overpass — try next mirror
-        lastErr = new Error(`Overpass ${res.status} @ ${ep}`);
+        lastErr = new Error(`Overpass ${res.status} @ ${parsed.hostname}`);
         continue;
       }
+
       const json = (await res.json()) as { elements?: OverpassElement[] };
       const els = Array.isArray(json.elements) ? json.elements : [];
-      const pois: Dispensary[] = [];
+      const deduped = new Map<string, Dispensary>();
+
       for (const el of els) {
         try {
           const d = normalizeElement(el, lat, lon);
-          if (d) pois.push(d);
+          if (d) deduped.set(d.id, d);
         } catch {
-          // skip malformed object, never crash
+          // Malformed community data is ignored rather than crashing the locator.
         }
       }
-      pois.sort((a, b) => a.distanceMeters - b.distanceMeters);
+
+      const pois = [...deduped.values()].sort((a, b) => a.distanceMeters - b.distanceMeters);
       return { pois, endpoint: ep };
     } catch (e) {
-      if ((e as Error)?.name === "AbortError") throw e;
-      lastErr = e;
-      continue;
+      if (signal?.aborted) throw new DOMException("Aborted", "AbortError");
+      lastErr = (e as Error)?.name === "AbortError"
+        ? new Error(`Overpass timeout @ ${parsed.hostname}`)
+        : e;
+    } finally {
+      window.clearTimeout(timeoutId);
+      signal?.removeEventListener("abort", forwardAbort);
     }
   }
+
   throw lastErr instanceof Error
     ? lastErr
     : new Error("All OSM POI providers unavailable");

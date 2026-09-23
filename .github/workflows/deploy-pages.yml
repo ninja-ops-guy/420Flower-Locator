@@ -31,6 +31,8 @@ jobs:
           cache: npm
           cache-dependency-path: dispensary-compass-app-specification/package-lock.json
       - run: npm ci
+      - name: Dependency security audit
+        run: npm audit --audit-level=high
       - run: npm run check
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3

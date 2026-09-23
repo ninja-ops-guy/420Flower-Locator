@@ -60,7 +60,7 @@ jobs:
           URL="https://ninja-ops-guy.github.io/420Flower-Locator/"
           for attempt in 1 2 3 4 5 6; do
             body="$(curl --fail --silent --show-error --location --max-time 15 "$URL" || true)"
-            if printf '%s' "$body" | grep -q "Compass — Nearest Dispensary Finder"; then
+            if [[ "$body" == *"Compass — Nearest Dispensary Finder"* ]]; then
               echo "Public COMPASS smoke test passed."
               exit 0
             fi

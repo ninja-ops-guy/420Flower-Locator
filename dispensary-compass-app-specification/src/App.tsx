@@ -140,6 +140,10 @@ export default function App() {
   const [demoLabel, setDemoLabel] = useState<string | null>(null);
   const watchId = useRef<number | null>(null);
   const locationRequestSeq = useRef(0);
+  const [geoDiag, setGeoDiag] = useState<{ code: number | null; message: string; at: number | null; secure: boolean; standalone: boolean }>({
+    code: null, message: "", at: null, secure: window.isSecureContext,
+    standalone: window.matchMedia?.("(display-mode: standalone)")?.matches ?? false,
+  });
 
   const stopWatch = useCallback(() => {
     if (watchId.current != null) { navigator.geolocation.clearWatch(watchId.current); watchId.current = null; }
@@ -162,6 +166,7 @@ export default function App() {
     }
 
     const requestSeq = ++locationRequestSeq.current;
+    setGeoDiag((d) => ({ ...d, code: null, message: "request_started", at: Date.now(), secure: window.isSecureContext }));
     setPerm("REQUESTING");
     setLocError("Waiting for location…");
     stopWatch();
@@ -169,6 +174,7 @@ export default function App() {
     const acceptFix = (p: GeolocationPosition) => {
       if (requestSeq !== locationRequestSeq.current) return;
       setPerm("GRANTED");
+      setGeoDiag((d) => ({ ...d, code: 0, message: "position_received", at: Date.now() }));
       setLocError(null);
       setIsDemo(false);
       setDemoLabel(null);
@@ -201,6 +207,7 @@ export default function App() {
       acceptFix,
       (e) => {
         if (requestSeq !== locationRequestSeq.current) return;
+        setGeoDiag((d) => ({ ...d, code: e.code, message: e.message || "geolocation_error", at: Date.now() }));
         if (e.code === e.PERMISSION_DENIED) {
           setPerm("DENIED");
           setLocError("Safari reports location permission denied for this site. Open the page menu → Website Settings → Location and set Allow, then reload Safari and retry.");
@@ -987,6 +994,8 @@ export default function App() {
                       heading={heading != null ? `${Math.round(heading)}°` : "unavailable"} · bearing={focusTarget ? `${Math.round(focusTarget.bearingDegrees)}°` : "—"} · rel={rel != null ? `${Math.round(rel)}°` : "—"}<br />
                       tiers=[{tiersTried.join(", ") || "—"}] · n={livePois.length} · cache={meta ? roughAge(Date.now() - meta.at) : "empty"} · ep={lastEndpoint ? (() => { try { return new URL(lastEndpoint).hostname; } catch { return lastEndpoint; } })() : "—"}
                       {locError && <><br />gps: {locError}</>}
+                      <br />geo-code={geoDiag.code ?? "—"} · geo-msg={geoDiag.message || "—"} · secure={geoDiag.secure ? "yes" : "no"} · standalone={geoDiag.standalone ? "yes" : "no"}
+                      <br />visibility={document.visibilityState} · ua={navigator.userAgent.slice(0, 120)}
                       {searchError && livePois.length === 0 && <><br />poi: {searchError}</>}
                     </div>
 

@@ -804,6 +804,15 @@ export default function App() {
                     <div className={cn("rounded-2xl border p-4", dark ? "border-white/10" : "border-black/10")}>
                       <div className="mb-1 flex items-center gap-2 text-sm font-extrabold"><Layers className="h-4 w-4" /> Map / POI providers</div>
                       <p className={cn("text-[13px]", dark ? "text-white/55" : "text-black/60")}>Endpoints are remote-configurable — swap infrastructure without touching core logic. Public OSM servers are best-effort: respect caching & attribution.</p>
+                      <label className={cn("mt-3 block font-mono2 text-[10.5px] font-bold tracking-[0.16em]", dark ? "text-white/40" : "text-black/45")}>CONTROLLED COMPASS API (OPTIONAL · HTTPS)</label>
+                      <input
+                        value={providers.apiEndpoint ?? ""}
+                        onChange={(e) => setProviders({ ...providers, apiEndpoint: e.target.value.trim() })}
+                        placeholder="https://your-api.example/api/dispensaries"
+                        spellCheck={false}
+                        className={cn("mt-1 w-full rounded-xl border p-2.5 font-mono2 text-xs", dark ? "border-white/10 bg-black/40 text-white/80" : "border-black/10 bg-white text-black/80")}
+                      />
+                      <p className={cn("mt-1 text-[11px]", dark ? "text-white/35" : "text-black/45")}>When configured, COMPASS sends a coarse ~0.02° search center to this gateway first. Exact distance and bearing remain local. Public Overpass stays as continuity fallback.</p>
                       <label className={cn("mt-3 block font-mono2 text-[10.5px] font-bold tracking-[0.16em]", dark ? "text-white/40" : "text-black/45")}>POI ENDPOINTS (ONE PER LINE, FAILOVER ORDER)</label>
                       <textarea value={provDraft} onChange={(e) => setProvDraft(e.target.value)} rows={3} spellCheck={false} className={cn("mt-1 w-full rounded-xl border p-3 font-mono2 text-xs", dark ? "border-white/10 bg-black/40 text-emerald-100" : "border-black/10 bg-[#f7f3e8] text-emerald-950")} />
                       <div className="mt-2 grid gap-2 sm:grid-cols-2">

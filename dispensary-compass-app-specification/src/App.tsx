@@ -941,6 +941,8 @@ export default function App() {
             <a className="underline" href="./privacy.html">Privacy</a>
             <span>·</span>
             <a className="underline" href="./terms.html">Terms</a>
+            <span>·</span>
+            <a className="underline" href="./business.html">For businesses</a>
           </div>
           <div className="flex items-center gap-2">
             <Cannabis className="h-3.5 w-3.5" />

@@ -233,7 +233,13 @@ export default function App() {
     setFix({ lat, lon, accuracyMeters: 18, timestamp: Date.now() });
   }, [stopWatch]);
 
-  useEffect(() => () => stopWatch(), [stopWatch]);
+  useEffect(() => () => {
+    // Invalidate every callback owned by the unmounted page before clearing the
+    // watcher. This protects Safari BFCache/PWA transitions from resurrecting
+    // stale permission or timeout results into a new app instance.
+    locationRequestSeq.current += 1;
+    stopWatch();
+  }, [stopWatch]);
 
   // iOS Safari may suspend geolocation when the tab is backgrounded or the
   // browser chrome changes presentation. Re-establish the foreground watcher
@@ -241,6 +247,8 @@ export default function App() {
   useEffect(() => {
     const resume = () => {
       if (document.visibilityState !== "visible") return;
+      // A visible page with a previous foreground grant should always have a
+      // live watcher. Reacquire through the same generation-safe request path.
       if (perm === "GRANTED" && watchId.current == null) requestLocation();
     };
     document.addEventListener("visibilitychange", resume);

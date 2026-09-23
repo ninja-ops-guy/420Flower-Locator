@@ -1,4 +1,4 @@
-const CACHE = "compass-shell-v1";
+const CACHE = "compass-shell-v3";
 const SHELL = ["./", "./manifest.webmanifest", "./icon.svg"];
 
 self.addEventListener("install", (event) => {

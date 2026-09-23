@@ -147,6 +147,7 @@ export default function App() {
   const [simulate, setSimulate] = useState(false);
   const [manualHeading, setManualHeading] = useState(24);
   const simRef = useRef<number>(24);
+  const headingListenerRef = useRef<EventListener | null>(null);
 
   // rAF smoothing toward target
   useEffect(() => {
@@ -192,20 +193,46 @@ export default function App() {
         const res = await DOE.requestPermission();
         if (res !== "granted") { setHeadingDenied(true); return; }
       }
-      const handler = (e: DeviceOrientationEvent) => {
+
+      if (headingListenerRef.current) {
+        window.removeEventListener("deviceorientationabsolute", headingListenerRef.current, true);
+        window.removeEventListener("deviceorientation", headingListenerRef.current, true);
+      }
+
+      let sawReading = false;
+      const handler = ((event: Event) => {
+        const e = event as DeviceOrientationEvent;
         const w = e as DeviceOrientationEvent & { webkitCompassHeading?: number };
         let h: number | null = null;
         if (typeof w.webkitCompassHeading === "number" && Number.isFinite(w.webkitCompassHeading)) h = w.webkitCompassHeading;
         else if (typeof e.alpha === "number" && Number.isFinite(e.alpha)) h = normalize360(360 - e.alpha);
-        if (h != null) { setHeadingSupported(true); setSimulate(false); setHeadingTarget(h); }
-      };
-      window.addEventListener("deviceorientationabsolute", handler as EventListener, true);
-      window.addEventListener("deviceorientation", handler as EventListener, true);
-      // probe support
+        if (h != null) {
+          sawReading = true;
+          setHeadingSupported(true);
+          setSimulate(false);
+          setHeadingTarget(h);
+        }
+      }) as EventListener;
+
+      headingListenerRef.current = handler;
+      window.addEventListener("deviceorientationabsolute", handler, true);
+      window.addEventListener("deviceorientation", handler, true);
+
       window.setTimeout(() => {
-        setHeadingSupported((prev) => prev);
-      }, 1000);
-    } catch { setHeadingDenied(true); setHeadingSupported(false); }
+        if (!sawReading) setHeadingSupported(false);
+      }, 1800);
+    } catch {
+      setHeadingDenied(true);
+      setHeadingSupported(false);
+    }
+  }, []);
+
+  useEffect(() => () => {
+    if (headingListenerRef.current) {
+      window.removeEventListener("deviceorientationabsolute", headingListenerRef.current, true);
+      window.removeEventListener("deviceorientation", headingListenerRef.current, true);
+      headingListenerRef.current = null;
+    }
   }, []);
 
   const nudgeManual = useCallback((v: number) => {
@@ -377,7 +404,7 @@ export default function App() {
             <div className="leading-none">
               <div className="flex items-center gap-2">
                 <span className="font-display text-[22px] font-black tracking-[0.22em]">COMPASS</span>
-                <span className={cn("hidden rounded-full px-2 py-0.5 font-mono2 text-[10px] font-bold tracking-[0.14em] sm:inline-block", dark ? "bg-white/10 text-emerald-200" : "bg-black/[0.07] text-emerald-900")}>SPEC-COMPASS-001 · v0.1</span>
+                <span className={cn("hidden rounded-full px-2 py-0.5 font-mono2 text-[10px] font-bold tracking-[0.14em] sm:inline-block", dark ? "bg-white/10 text-emerald-200" : "bg-black/[0.07] text-emerald-900")}>SPEC-COMPASS-001 · v1.0</span>
               </div>
               <div className={cn("mt-1 font-mono2 text-[10.5px] tracking-[0.18em]", dark ? "text-white/45" : "text-black/50")}>NEAREST DISPENSARY · STRAIGHT-LINE</div>
             </div>
@@ -746,7 +773,7 @@ export default function App() {
                           </button>
                         ))}
                       </div>
-                      <p className={cn("mt-2 text-xs", dark ? "text-white/40" : "text-black/50")}>Persists locally. System follows your OS. Night uses dark map tiles.</p>
+                      <p className={cn("mt-2 text-xs", dark ? "text-white/40" : "text-black/50")}>Persists locally. System follows your OS. Night mode renders the same keyless OSM source with a local low-light treatment.</p>
                     </div>
 
                     {/* location */}

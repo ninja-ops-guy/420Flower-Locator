@@ -149,31 +149,59 @@ export default function App() {
   }, []);
 
   const requestLocation = useCallback(() => {
+    if (!window.isSecureContext) {
+      setPerm("DENIED");
+      setLocError("Live location requires a secure HTTPS connection.");
+      return;
+    }
     if (!("geolocation" in navigator)) {
       setPerm("DENIED");
       setLocError("This device or browser has no geolocation service.");
       return;
     }
+
     setPerm("REQUESTING");
     setLocError(null);
     stopWatch();
+
+    let settled = false;
+    const acceptFix = (p: GeolocationPosition) => {
+      settled = true;
+      setPerm("GRANTED");
+      setLocError(null);
+      setIsDemo(false);
+      setDemoLabel(null);
+      applyFix(p.coords.latitude, p.coords.longitude, p.coords.accuracy ?? null);
+    };
+    const explainError = (e: GeolocationPositionError, watching = false) => {
+      if (e.code === e.PERMISSION_DENIED) {
+        setPerm("DENIED");
+        setLocError("Location access is blocked. Enable location for this site in your browser settings, then tap Re-request GPS.");
+      } else if (e.code === e.POSITION_UNAVAILABLE) {
+        if (!settled) setPerm("UNKNOWN");
+        setLocError("Your phone could not determine a location yet. Make sure Location Services are on and try again.");
+      } else {
+        if (!settled) setPerm("UNKNOWN");
+        setLocError(watching
+          ? "Live GPS updates paused. COMPASS will keep the last valid fix; tap Re-request GPS to reconnect."
+          : "Location is taking longer than expected. Tap Re-request GPS to try again.");
+      }
+    };
+
+    // Start the live watcher immediately. On mobile, waiting for a separate
+    // high-accuracy one-shot fix first can prevent tracking from ever starting.
+    watchId.current = navigator.geolocation.watchPosition(
+      acceptFix,
+      (e) => explainError(e, true),
+      { enableHighAccuracy: true, maximumAge: 3000, timeout: 30000 }
+    );
+
+    // Also request a fast cached/network fix so the UI can become useful while
+    // the GPS radio is still converging on an accurate position.
     navigator.geolocation.getCurrentPosition(
-      (p) => {
-        setPerm("GRANTED");
-        setIsDemo(false); setDemoLabel(null);
-        applyFix(p.coords.latitude, p.coords.longitude, p.coords.accuracy ?? null);
-        watchId.current = navigator.geolocation.watchPosition(
-          (pp) => applyFix(pp.coords.latitude, pp.coords.longitude, pp.coords.accuracy ?? null),
-          (e) => { if (e.code === 1) { setPerm("DENIED"); } },
-          { enableHighAccuracy: true, maximumAge: 8000, timeout: 20000 }
-        );
-      },
-      (e) => {
-        if (e.code === 1) { setPerm("DENIED"); setLocError("Location permission was denied."); }
-        else if (e.code === 2) { setPerm("GRANTED"); setLocError("GPS unavailable — try moving near a window or enable location services."); }
-        else { setPerm("GRANTED"); setLocError("Location timed out. Retrying keeps the last fix."); }
-      },
-      { enableHighAccuracy: true, maximumAge: 5000, timeout: 15000 }
+      acceptFix,
+      (e) => { if (!settled) explainError(e, false); },
+      { enableHighAccuracy: false, maximumAge: 60000, timeout: 10000 }
     );
   }, [applyFix, stopWatch]);
 

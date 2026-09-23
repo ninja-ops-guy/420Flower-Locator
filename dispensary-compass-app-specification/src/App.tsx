@@ -231,6 +231,22 @@ export default function App() {
 
   useEffect(() => () => stopWatch(), [stopWatch]);
 
+  // iOS Safari may suspend geolocation when the tab is backgrounded or the
+  // browser chrome changes presentation. Re-establish the foreground watcher
+  // when the page becomes active again instead of falling back to a dead state.
+  useEffect(() => {
+    const resume = () => {
+      if (document.visibilityState !== "visible") return;
+      if (perm === "GRANTED" && watchId.current == null) requestLocation();
+    };
+    document.addEventListener("visibilitychange", resume);
+    window.addEventListener("pageshow", resume);
+    return () => {
+      document.removeEventListener("visibilitychange", resume);
+      window.removeEventListener("pageshow", resume);
+    };
+  }, [perm, requestLocation]);
+
   /* heading */
   const [headingTarget, setHeadingTarget] = useState<number | null>(null);
   const [headingSmooth, setHeadingSmooth] = useState<number | null>(null);
@@ -468,7 +484,8 @@ export default function App() {
   /* phase */
   const phase: Phase = useMemo(() => {
     if (perm === "DENIED" && !fix) return "LOCATION_REQUIRED";
-    if (perm === "UNKNOWN" || perm === "REQUESTING") return !fix ? "CHECK_PERMISSION" : "LOCATING";
+    if (perm === "UNKNOWN" && !fix) return "LOCATION_REQUIRED";
+    if (perm === "REQUESTING") return !fix ? "CHECK_PERMISSION" : "LOCATING";
     if (!fix) return "LOCATING";
     if (searching) return tiersTried.length > 1 || (tierNote?.includes("expanding") ?? false) ? "EXPAND_RADIUS" : "SEARCHING";
     if (searchError && livePois.length === 0) return "NO_RESULTS";
@@ -582,6 +599,11 @@ export default function App() {
                     <Radar className="h-4 w-4" /> Try demo · Denver
                   </button>
                 </div>
+                {locError && (
+                  <div className={cn("mt-4 rounded-2xl border px-4 py-3 text-sm leading-relaxed", dark ? "border-amber-300/20 bg-amber-300/10 text-amber-100" : "border-amber-700/20 bg-amber-50 text-amber-950")}>
+                    {locError}
+                  </div>
+                )}
                 <div className={cn("mt-6 flex items-center gap-2 text-xs", dark ? "text-white/40" : "text-black/45")}>
                   <ShieldCheck className="h-4 w-4" /> We don't need background location. Ever.
                 </div>

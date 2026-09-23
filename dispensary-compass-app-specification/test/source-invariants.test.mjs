@@ -24,8 +24,13 @@ test("service worker uses a versioned shell cache", () => {
 });
 
 
-test("iOS watch denial cannot immediately cancel parallel permission probes", () => {
-  assert.match(app, /if \(source !== "watch"\) pendingOneShots = Math\.max\(0, pendingOneShots - 1\);/);
-  assert.match(app, /if \(pendingOneShots > 0\)[\s\S]*Waiting for iPhone location permission/);
-  assert.doesNotMatch(app, /denied = true;\s*stopWatch\(\)/);
+test("iOS permission acquisition is serialized before live watch starts", () => {
+  const requestStart = app.indexOf("const requestLocation = useCallback");
+  const requestEnd = app.indexOf("const useDemo =", requestStart);
+  const block = app.slice(requestStart, requestEnd);
+  const oneShot = block.indexOf("navigator.geolocation.getCurrentPosition(");
+  const watch = block.indexOf("navigator.geolocation.watchPosition(");
+  assert.ok(oneShot >= 0 && watch >= 0);
+  assert.ok(oneShot < watch, "permission-producing one-shot must be established before watcher code");
+  assert.match(block, /Start continuous tracking only after Safari has successfully completed/);
 });

@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import CompassDial from "./components/CompassDial";
 import MapView from "./components/MapView";
+import MerchantClaimModal from "./components/MerchantClaimModal";
 import {
   angularDelta, bearingDegrees, cardinalFromBearing, displayName, formatMiles,
   haversineMeters, normalize360, openStatus, roughAge,
@@ -83,6 +84,53 @@ export default function App() {
   /* providers */
   const [providers, setProviders] = useState<ProviderConfig>(loadProviders);
   useEffect(() => { try { localStorage.setItem(LS_PROV, JSON.stringify(providers)); } catch { /* noop */ } }, [providers]);
+
+  /* merchant capabilities */
+  const merchantApiOrigin = useMemo(() => {
+    try { return providers.apiEndpoint ? new URL(providers.apiEndpoint).origin : ""; } catch { return ""; }
+  }, [providers.apiEndpoint]);
+  const [merchantClaimsAvailable, setMerchantClaimsAvailable] = useState(false);
+  const [merchantAnalyticsAvailable, setMerchantAnalyticsAvailable] = useState(false);
+  const [claimTarget, setClaimTarget] = useState<Dispensary | null>(null);
+  const lastTrackedListing = useRef<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!merchantApiOrigin) {
+      setMerchantClaimsAvailable(false);
+      setMerchantAnalyticsAvailable(false);
+      return;
+    }
+
+    fetch(`${merchantApiOrigin}/api/capabilities`, { headers: { Accept: "application/json" } })
+      .then((res) => res.ok ? res.json() : Promise.reject(new Error("capabilities unavailable")))
+      .then((data) => {
+        if (cancelled) return;
+        setMerchantClaimsAvailable(Boolean(data?.merchantClaims));
+        setMerchantAnalyticsAvailable(Boolean(data?.merchantAnalytics));
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setMerchantClaimsAvailable(false);
+          setMerchantAnalyticsAvailable(false);
+        }
+      });
+
+    return () => { cancelled = true; };
+  }, [merchantApiOrigin]);
+
+  const trackMerchantEvent = useCallback((target: Dispensary, eventType: string) => {
+    if (!merchantAnalyticsAvailable || !merchantApiOrigin) return;
+    fetch(`${merchantApiOrigin}/api/events`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        locationKey: `${target.osmType}/${target.osmId}`,
+        eventType,
+      }),
+      keepalive: true,
+    }).catch(() => { /* analytics never blocks consumer navigation */ });
+  }, [merchantAnalyticsAvailable, merchantApiOrigin]);
 
   /* location */
   const [perm, setPerm] = useState<PermState>("UNKNOWN");
@@ -364,6 +412,14 @@ export default function App() {
   const selected = useMemo(() => livePois.find((p) => p.id === selectedId) ?? nearest, [livePois, selectedId, nearest]);
   const focusTarget = selected ?? nearest;
 
+  useEffect(() => {
+    if (!focusTarget || !merchantAnalyticsAvailable) return;
+    const key = `${focusTarget.osmType}/${focusTarget.osmId}`;
+    if (lastTrackedListing.current === key) return;
+    lastTrackedListing.current = key;
+    trackMerchantEvent(focusTarget, "listing_view");
+  }, [focusTarget, merchantAnalyticsAvailable, trackMerchantEvent]);
+
   /* phase */
   const phase: Phase = useMemo(() => {
     if (perm === "DENIED" && !fix) return "LOCATION_REQUIRED";
@@ -471,7 +527,7 @@ export default function App() {
                 </div>
                 <h1 className="font-display mt-4 text-4xl font-black leading-[1.02] tracking-tight sm:text-5xl">Compass needs your location to find dispensaries near you.</h1>
                 <p className={cn("mt-4 max-w-md text-[15px] leading-relaxed", dark ? "text-white/60" : "text-black/60")}>
-                  Foreground location only — while the app is open. No account, no history, no background tracking. Your coordinates leave the device only inside the OpenStreetMap POI query.
+                  Foreground location only — while the app is open. No account, no history, no background tracking. Exact distance and bearing stay on-device; the controlled search gateway receives only a coarse nearby-search center when available.
                 </p>
                 <div className="mt-6 flex flex-wrap gap-3">
                   <button onClick={requestLocation} className={cn("inline-flex items-center gap-2 rounded-2xl px-5 py-3.5 text-sm font-extrabold tracking-wide transition-transform hover:-translate-y-0.5", dark ? "bg-emerald-400 text-emerald-950 shadow-[0_16px_40px_-12px_rgba(52,211,153,0.6)]" : "bg-emerald-800 text-white shadow-[0_16px_40px_-12px_rgba(13,92,67,0.6)]")}>
@@ -597,9 +653,28 @@ export default function App() {
                         <button onClick={() => setView("map")} className={cn("inline-flex items-center justify-center gap-2 rounded-2xl px-4 py-3 text-[13px] font-extrabold tracking-wide transition-transform hover:-translate-y-0.5", dark ? "bg-emerald-400 text-emerald-950" : "bg-emerald-800 text-white")}>
                           <MapIcon className="h-4 w-4" /> VIEW MAP
                         </button>
-                        <a href={directionsUrl} target="_blank" rel="noreferrer" className={cn("inline-flex items-center justify-center gap-2 rounded-2xl border px-4 py-3 text-[13px] font-extrabold tracking-wide", dark ? "border-white/15 text-white hover:bg-white/10" : "border-black/15 text-black hover:bg-black/5")}>
+                        <a href={directionsUrl} target="_blank" rel="noreferrer" onClick={() => trackMerchantEvent(focusTarget, "directions_click")} className={cn("inline-flex items-center justify-center gap-2 rounded-2xl border px-4 py-3 text-[13px] font-extrabold tracking-wide", dark ? "border-white/15 text-white hover:bg-white/10" : "border-black/15 text-black hover:bg-black/5")}>
                           <Navigation className="h-4 w-4" /> DIRECTIONS
                         </a>
+                      </div>
+                      <div className="mt-3 flex items-center justify-between gap-3">
+                        {merchantClaimsAvailable ? (
+                          <button
+                            onClick={() => { trackMerchantEvent(focusTarget, "claim_click"); setClaimTarget(focusTarget); }}
+                            className={cn("text-left text-xs font-bold underline decoration-dotted underline-offset-4", dark ? "text-emerald-300/80 hover:text-emerald-200" : "text-emerald-800/80 hover:text-emerald-900")}
+                          >
+                            Own or manage this location? Claim it
+                          </button>
+                        ) : <span />}
+                        {focusTarget.phone && (
+                          <a
+                            href={`tel:${focusTarget.phone}`}
+                            onClick={() => trackMerchantEvent(focusTarget, "call_click")}
+                            className={cn("text-xs font-bold", dark ? "text-white/60 hover:text-white" : "text-black/55 hover:text-black")}
+                          >
+                            Call
+                          </a>
+                        )}
                       </div>
                       <div className={cn("mt-3 flex items-center justify-between font-mono2 text-[10.5px]", dark ? "text-white/35" : "text-black/40")}>
                         <span>{focusTarget.osmType}/{focusTarget.osmId}</span>
@@ -667,7 +742,7 @@ export default function App() {
                     </div>
                     <div className="flex items-center gap-2">
                       {focusTarget && (
-                        <a href={directionsUrl} target="_blank" rel="noreferrer" className={cn("hidden items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-extrabold sm:inline-flex", dark ? "bg-emerald-400 text-emerald-950" : "bg-emerald-800 text-white")}>
+                        <a href={directionsUrl} target="_blank" rel="noreferrer" onClick={() => focusTarget && trackMerchantEvent(focusTarget, "directions_click")} className={cn("hidden items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-extrabold sm:inline-flex", dark ? "bg-emerald-400 text-emerald-950" : "bg-emerald-800 text-white")}>
                           <Navigation className="h-3.5 w-3.5" /> DIRECTIONS <ExternalLink className="h-3 w-3" />
                         </a>
                       )}
@@ -696,7 +771,7 @@ export default function App() {
                           <Globe className="h-3.5 w-3.5" /> Open in OSM
                         </a>
                         {focusTarget.website && (
-                          <a href={focusTarget.website} target="_blank" rel="noreferrer" className={cn("inline-flex items-center gap-1.5 rounded-xl border px-3 py-2 text-xs font-bold", dark ? "border-white/15 text-white/75 hover:bg-white/10" : "border-black/15 text-black/70 hover:bg-black/5")}>
+                          <a href={focusTarget.website} target="_blank" rel="noreferrer" onClick={() => trackMerchantEvent(focusTarget, "website_click")} className={cn("inline-flex items-center gap-1.5 rounded-xl border px-3 py-2 text-xs font-bold", dark ? "border-white/15 text-white/75 hover:bg-white/10" : "border-black/15 text-black/70 hover:bg-black/5")}>
                             Website <ExternalLink className="h-3 w-3" />
                           </a>
                         )}
@@ -876,6 +951,14 @@ export default function App() {
 
       {/* boot → auto permission nudge */}
       <BootGate perm={perm} fix={fix} onEnable={requestLocation} onDemo={() => useDemo(39.7392, -104.9903, "Denver, CO")} dark={dark} />
+      {claimTarget && merchantClaimsAvailable && merchantApiOrigin && (
+        <MerchantClaimModal
+          dark={dark}
+          target={claimTarget}
+          apiOrigin={merchantApiOrigin}
+          onClose={() => setClaimTarget(null)}
+        />
+      )}
     </div>
   );
 }

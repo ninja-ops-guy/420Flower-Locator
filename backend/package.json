@@ -5,5 +5,8 @@
   "type": "module",
   "engines": {
     "node": "22.x"
+  },
+  "scripts": {
+    "check": "node --check api/health.js && node --check api/dispensaries.js && node --test test/*.test.mjs"
   }
 }

@@ -60,9 +60,17 @@ export default function MapView({ user, nearest, all, dark, tiles, darkTiles, ac
     });
     layer.addTo(map);
     layerRef.current = layer;
-    // Both themes use OpenStreetMap tiles by default; the app chrome supplies night mode.
+    // Keep one keyless OpenStreetMap source and render a legible night treatment locally.
+    // This avoids third-party map credentials while preserving attribution and availability.
     const container = map.getContainer();
     container.style.background = dark ? "#0e100e" : "#e8e4d8";
+    const tilePane = map.getPane("tilePane");
+    if (tilePane) {
+      tilePane.style.transition = "filter 180ms ease";
+      tilePane.style.filter = dark
+        ? "brightness(.72) invert(1) contrast(1.2) hue-rotate(180deg) saturate(.45)"
+        : "";
+    }
   }, [dark, tiles, darkTiles]);
 
   // markers + bounds

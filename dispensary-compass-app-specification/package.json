@@ -8,8 +8,8 @@
     "build": "vite build",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
-    "check": "npm run typecheck && npm run build",
-    "test": "node --test"
+    "check": "npm run typecheck && npm run test && npm run build",
+    "test": "tsc src/lib/geo.ts --outDir .test-build --target ES2020 --module NodeNext --moduleResolution NodeNext --skipLibCheck && node --test test/geo.test.mjs"
   },
   "dependencies": {
     "@types/leaflet": "^1.9.22",

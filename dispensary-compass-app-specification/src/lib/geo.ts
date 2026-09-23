@@ -8,6 +8,7 @@ export interface Dispensary {
   address?: string;
   openingHours?: string;
   website?: string;
+  phone?: string;
   recreational?: boolean;
   medical?: boolean;
   cbd?: boolean;

@@ -345,7 +345,10 @@ export default function App() {
 
   /* live recompute distances/bearings locally (no refetch) */
   const livePois = useMemo(() => {
-    if (!fix) return pois;
+    // Cached POIs are continuity data, not a valid destination until we have a
+    // current location fix. This prevents a previous session's destination
+    // from appearing while permission/GPS is still unresolved.
+    if (!fix) return [];
     return pois
       .map((p) => ({
         ...p,

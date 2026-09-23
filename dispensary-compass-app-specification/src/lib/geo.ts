@@ -113,36 +113,39 @@ export function openStatus(openingHours?: string): {
 } {
   if (!openingHours) return { label: "", open: null };
   const s = openingHours.trim();
-  // 24/7
-  if (/24\s*\/\s*7/i.test(s)) return { label: "OPEN 24 HOURS", open: true };
-  // Try "Mo-Su 09:00-21:00" / "09:00-21:00" — take closing time of last range today
-  const timeRanges = [...s.matchAll(/(\d{1,2}):(\d{2})\s*-\s*(\d{1,2}):(\d{2})/g)];
-  if (timeRanges.length > 0) {
-    const last = timeRanges[timeRanges.length - 1];
-    const closeH = parseInt(last[3], 10);
-    const closeM = last[4];
+
+  if (/^24\s*\/\s*7$/i.test(s)) {
+    return { label: "OPEN 24 HOURS", open: true };
+  }
+
+  // Only infer open/closed for an unqualified daily time range. Full OSM
+  // opening_hours syntax includes weekdays, holidays, split ranges and
+  // exceptions; guessing those states can mislead users.
+  const simple = s.match(/^(\d{1,2}):(\d{2})\s*-\s*(\d{1,2}):(\d{2})$/);
+  if (simple) {
     const now = new Date();
-    const close = new Date(now);
-    close.setHours(closeH, parseInt(closeM, 10), 0, 0);
-    // crude: if now before close, assume open
-    const openH = parseInt(last[1], 10);
     const open = new Date(now);
-    open.setHours(openH, parseInt(last[2], 10), 0, 0);
-    let isOpen: boolean | null = null;
-    if (now >= open && now <= close) isOpen = true;
-    else if (now < open) isOpen = false;
-    else {
-      // after close — may reopen tomorrow
-      isOpen = false;
-    }
-    if (isOpen === true) {
+    const close = new Date(now);
+    open.setHours(parseInt(simple[1], 10), parseInt(simple[2], 10), 0, 0);
+    close.setHours(parseInt(simple[3], 10), parseInt(simple[4], 10), 0, 0);
+
+    // Handle simple overnight ranges such as 20:00-02:00.
+    if (close <= open) close.setDate(close.getDate() + 1);
+    const comparisonNow = now < open && close.getDate() !== open.getDate()
+      ? new Date(now.getTime() + 24 * 60 * 60 * 1000)
+      : now;
+    const isOpen = comparisonNow >= open && comparisonNow <= close;
+
+    if (isOpen) {
+      const closeH = parseInt(simple[3], 10);
       const h12 = closeH % 12 === 0 ? 12 : closeH % 12;
       const ap = closeH >= 12 ? "PM" : "AM";
-      return { label: `OPEN UNTIL ${h12}:${closeM} ${ap}`, open: true };
+      return { label: `OPEN UNTIL ${h12}:${simple[4]} ${ap}`, open: true };
     }
     return { label: "CURRENTLY CLOSED", open: false };
   }
-  return { label: s.toUpperCase().slice(0, 42), open: null };
+
+  return { label: "HOURS AVAILABLE · VERIFY BEFORE TRAVEL", open: null };
 }
 
 export function roughAge(ms: number): string {

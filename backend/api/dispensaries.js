@@ -19,6 +19,11 @@ function buildQuery(lat, lon, radiusMeters) {
   return `[out:json][timeout:20];(nwr["shop"="cannabis"](around:${Math.round(radiusMeters)},${lat},${lon}););out center 200;`;
 }
 
+function buildQueryPayload(formBody) {
+  const params = new URLSearchParams(formBody);
+  return params.get("data") ?? "";
+}
+
 async function queryOverpass(endpoint, body, outerSignal) {
   const ctrl = new AbortController();
   const timeout = setTimeout(() => ctrl.abort(), 8000);
@@ -26,13 +31,14 @@ async function queryOverpass(endpoint, body, outerSignal) {
   outerSignal?.addEventListener?.("abort", forwardAbort, { once: true });
 
   try {
-    const response = await fetch(endpoint, {
-      method: "POST",
+    const url = new URL(endpoint);
+    url.searchParams.set("data", buildQueryPayload(body));
+    const response = await fetch(url, {
+      method: "GET",
       headers: {
-        "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
-        "Accept": "application/json"
+        "Accept": "application/json",
+        "User-Agent": "COMPASS/1.0 (https://github.com/ninja-ops-guy/420Flower-Locator)"
       },
-      body,
       signal: ctrl.signal
     });
 

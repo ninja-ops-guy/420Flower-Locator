@@ -22,3 +22,10 @@ test("location errors are visible in the primary location-required UI", () => {
 test("service worker uses a versioned shell cache", () => {
   assert.match(sw, /const CACHE = "compass-shell-v\d+";/);
 });
+
+
+test("iOS watch denial cannot immediately cancel parallel permission probes", () => {
+  assert.match(app, /if \(source !== "watch"\) pendingOneShots = Math\.max\(0, pendingOneShots - 1\);/);
+  assert.match(app, /if \(pendingOneShots > 0\)[\s\S]*Waiting for iPhone location permission/);
+  assert.doesNotMatch(app, /denied = true;\s*stopWatch\(\)/);
+});

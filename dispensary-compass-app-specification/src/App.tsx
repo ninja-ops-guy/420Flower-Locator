@@ -163,71 +163,56 @@ export default function App() {
 
     const requestSeq = ++locationRequestSeq.current;
     setPerm("REQUESTING");
-    setLocError("Waiting for iPhone location…");
+    setLocError("Waiting for location…");
     stopWatch();
-
-    let hasFix = false;
-    let pendingOneShots = 2;
 
     const acceptFix = (p: GeolocationPosition) => {
       if (requestSeq !== locationRequestSeq.current) return;
-      hasFix = true;
       setPerm("GRANTED");
       setLocError(null);
       setIsDemo(false);
       setDemoLabel(null);
       applyFix(p.coords.latitude, p.coords.longitude, p.coords.accuracy ?? null);
+
+      // Start continuous tracking only after Safari has successfully completed
+      // the explicit, user-gesture permission/fix request. This avoids iOS
+      // racing watchPosition against the permission-producing request.
+      if (watchId.current == null) {
+        watchId.current = navigator.geolocation.watchPosition(
+          (pp) => {
+            if (requestSeq !== locationRequestSeq.current) return;
+            applyFix(pp.coords.latitude, pp.coords.longitude, pp.coords.accuracy ?? null);
+          },
+          (e) => {
+            if (requestSeq !== locationRequestSeq.current) return;
+            if (e.code === e.PERMISSION_DENIED) {
+              setLocError("Live GPS updates paused by iOS. Your last valid location is retained; tap Re-request GPS if updates stop.");
+            }
+          },
+          { enableHighAccuracy: true, maximumAge: 5000, timeout: 30000 }
+        );
+      }
     };
 
-    const fail = (e: GeolocationPositionError, source: string) => {
-      if (requestSeq !== locationRequestSeq.current) return;
-      if (e.code === e.PERMISSION_DENIED) {
-        // iOS can report PERMISSION_DENIED from one concurrent geolocation
-        // request while another request from the same tap still succeeds.
-        // Treat denial as final only after both one-shot probes have also
-        // finished; never let the watch callback cancel potentially successful
-        // permission-producing calls.
-        if (source !== "watch") pendingOneShots = Math.max(0, pendingOneShots - 1);
-        if (hasFix) return;
-        if (pendingOneShots > 0) {
-          setLocError("Waiting for iPhone location permission…");
-          return;
+    // On iOS Safari, keep the permission-producing operation singular and
+    // directly tied to the user's tap. Parallel geolocation requests can race
+    // and produce contradictory PERMISSION_DENIED callbacks.
+    navigator.geolocation.getCurrentPosition(
+      acceptFix,
+      (e) => {
+        if (requestSeq !== locationRequestSeq.current) return;
+        if (e.code === e.PERMISSION_DENIED) {
+          setPerm("DENIED");
+          setLocError("Safari reports location permission denied for this site. Open the page menu → Website Settings → Location and set Allow, then reload Safari and retry.");
+        } else if (e.code === e.POSITION_UNAVAILABLE) {
+          setPerm("UNKNOWN");
+          setLocError("iPhone could not determine a location. Confirm Location Services are enabled for Safari Websites and try again.");
+        } else {
+          setPerm("UNKNOWN");
+          setLocError("iPhone location timed out. Try again outdoors or near a window.");
         }
-        stopWatch();
-        setPerm("DENIED");
-        setLocError("iPhone blocked location for this website. Safari: tap the page menu → Website Settings → Location → Allow. Also check Settings → Privacy & Security → Location Services → Safari Websites.");
-        return;
-      }
-      if (source !== "watch") pendingOneShots = Math.max(0, pendingOneShots - 1);
-      if (hasFix) return;
-      if (pendingOneShots > 0 || source === "watch") {
-        setLocError("Still acquiring an iPhone location fix…");
-        return;
-      }
-      setPerm("UNKNOWN");
-      setLocError(e.code === e.POSITION_UNAVAILABLE
-        ? "iPhone could not produce a location. Confirm Location Services are on for Safari Websites, then try again."
-        : "iPhone location timed out. Tap Enable Location to retry.");
-    };
-
-    // Start all three paths from the same user gesture. iOS versions differ in
-    // which path returns first: cached/network, fresh GPS, or the live watcher.
-    watchId.current = navigator.geolocation.watchPosition(
-      acceptFix,
-      (e) => fail(e, "watch"),
-      { enableHighAccuracy: true, maximumAge: 5000, timeout: 30000 }
-    );
-
-    navigator.geolocation.getCurrentPosition(
-      acceptFix,
-      (e) => fail(e, "cached"),
-      { enableHighAccuracy: false, maximumAge: 300000, timeout: 6000 }
-    );
-
-    navigator.geolocation.getCurrentPosition(
-      acceptFix,
-      (e) => fail(e, "fresh"),
-      { enableHighAccuracy: true, maximumAge: 0, timeout: 20000 }
+      },
+      { enableHighAccuracy: true, maximumAge: 0, timeout: 30000 }
     );
   }, [applyFix, stopWatch]);
 

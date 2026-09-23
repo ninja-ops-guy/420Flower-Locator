@@ -167,11 +167,10 @@ export default function App() {
     stopWatch();
 
     let hasFix = false;
-    let denied = false;
     let pendingOneShots = 2;
 
     const acceptFix = (p: GeolocationPosition) => {
-      if (requestSeq !== locationRequestSeq.current || denied) return;
+      if (requestSeq !== locationRequestSeq.current) return;
       hasFix = true;
       setPerm("GRANTED");
       setLocError(null);
@@ -183,14 +182,24 @@ export default function App() {
     const fail = (e: GeolocationPositionError, source: string) => {
       if (requestSeq !== locationRequestSeq.current) return;
       if (e.code === e.PERMISSION_DENIED) {
-        denied = true;
+        // iOS can report PERMISSION_DENIED from one concurrent geolocation
+        // request while another request from the same tap still succeeds.
+        // Treat denial as final only after both one-shot probes have also
+        // finished; never let the watch callback cancel potentially successful
+        // permission-producing calls.
+        if (source !== "watch") pendingOneShots = Math.max(0, pendingOneShots - 1);
+        if (hasFix) return;
+        if (pendingOneShots > 0) {
+          setLocError("Waiting for iPhone location permission…");
+          return;
+        }
         stopWatch();
         setPerm("DENIED");
         setLocError("iPhone blocked location for this website. Safari: tap the page menu → Website Settings → Location → Allow. Also check Settings → Privacy & Security → Location Services → Safari Websites.");
         return;
       }
       if (source !== "watch") pendingOneShots = Math.max(0, pendingOneShots - 1);
-      if (hasFix || denied) return;
+      if (hasFix) return;
       if (pendingOneShots > 0 || source === "watch") {
         setLocError("Still acquiring an iPhone location fix…");
         return;

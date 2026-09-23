@@ -835,7 +835,7 @@ export default function App() {
                     {/* privacy */}
                     <div className={cn("flex gap-3 rounded-2xl border p-4 text-[13px] leading-relaxed", dark ? "border-white/10 text-white/60" : "border-black/10 text-black/60")}>
                       <ShieldCheck className="h-5 w-5 shrink-0 text-emerald-600 dark:text-emerald-300" />
-                      <div><strong>Privacy.</strong> No account · no analytics · no location history · no background tracking · no server profile. Stored locally: theme, cached POIs, last refresh, provider config. 21+ · informational only — Compass does not sell cannabis, facilitate payment, or provide ordering.</div>
+                      <div><strong>Privacy.</strong> No account · no analytics · no location history · no background tracking · no server profile. Stored locally: theme, cached POIs, last refresh, provider config. Legal-age users only · informational only — Compass does not sell cannabis, facilitate payment, or provide ordering.</div>
                     </div>
                   </div>
                 </section>
@@ -852,10 +852,14 @@ export default function App() {
             <span>© <a className="underline" href="https://www.openstreetmap.org/copyright" target="_blank" rel="noreferrer">OpenStreetMap</a> contributors</span>
             <span>·</span>
             <span>tile + Nominatim usage policies apply</span>
+            <span>·</span>
+            <a className="underline" href="./privacy.html">Privacy</a>
+            <span>·</span>
+            <a className="underline" href="./terms.html">Terms</a>
           </div>
           <div className="flex items-center gap-2">
             <Cannabis className="h-3.5 w-3.5" />
-            <span>21+ · KNOW YOUR LOCAL LAWS · DATA: shop=cannabis · CACHE 5 MIN / 300 M</span>
+            <span>LEGAL AGE ONLY · KNOW YOUR LOCAL LAWS · DATA: shop=cannabis · CACHE 5 MIN / 300 M</span>
           </div>
         </footer>
       </div>
@@ -952,7 +956,7 @@ function BootGate({ perm, fix, onEnable, onDemo, dark }: { perm: PermState; fix:
           <button onClick={() => { onDemo(); setDismissed(true); try { sessionStorage.setItem("compass:boot", "1"); } catch { /* noop */ } }} className={cn("mt-2 w-full rounded-2xl border px-5 py-3 text-[13px] font-bold", dark ? "border-white/15 text-white/75" : "border-black/15 text-black/70")}>
             Explore demo · Denver, no GPS
           </button>
-          <p className={cn("mt-3 text-center font-mono2 text-[10px]", dark ? "text-white/30" : "text-black/40")}>21+ · INFORMATIONAL ONLY · © OpenStreetMap CONTRIBUTORS</p>
+          <p className={cn("mt-3 text-center font-mono2 text-[10px]", dark ? "text-white/30" : "text-black/40")}>LEGAL AGE ONLY · INFORMATIONAL ONLY · © OpenStreetMap CONTRIBUTORS</p>
         </div>
       </div>
     </div>

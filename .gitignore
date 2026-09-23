@@ -1,0 +1,11 @@
+# Node / Vite
+node_modules/
+dist/
+.test-build/
+
+# Local tooling
+.DS_Store
+*.log
+.env
+.env.*
+!.env.example

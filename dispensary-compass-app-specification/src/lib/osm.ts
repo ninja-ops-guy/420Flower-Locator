@@ -9,7 +9,7 @@ export interface ProviderConfig {
 
 export const DEFAULT_PROVIDERS: ProviderConfig = {
   tiles: "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
-  darkTiles: "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
+  darkTiles: "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
   poiEndpoints: [
     "https://overpass.kumi.systems/api/interpreter",
     "https://overpass-api.de/api/interpreter",

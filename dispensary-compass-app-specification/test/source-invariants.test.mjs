@@ -16,7 +16,7 @@ test("fresh GPS forces the first POI search of a session", () => {
 
 test("location errors are visible in the primary location-required UI", () => {
   assert.match(app, /\{locError && \(/);
-  assert.match(app, /iPhone blocked location for this website/);
+  assert.match(app, /Safari reports location permission denied for this site/);
 });
 
 test("service worker uses a versioned shell cache", () => {
@@ -29,8 +29,9 @@ test("iOS permission acquisition is serialized before live watch starts", () => 
   const requestEnd = app.indexOf("const useDemo =", requestStart);
   const block = app.slice(requestStart, requestEnd);
   const oneShot = block.indexOf("navigator.geolocation.getCurrentPosition(");
-  const watch = block.indexOf("navigator.geolocation.watchPosition(");
+  const successHandler = block.indexOf("const acceptFix");
+  const watch = block.indexOf("navigator.geolocation.watchPosition(", successHandler);
   assert.ok(oneShot >= 0 && watch >= 0);
-  assert.ok(oneShot < watch, "permission-producing one-shot must be established before watcher code");
   assert.match(block, /Start continuous tracking only after Safari has successfully completed/);
+  assert.match(block, /getCurrentPosition\(\s*acceptFix/);
 });

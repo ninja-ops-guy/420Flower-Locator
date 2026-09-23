@@ -17,7 +17,7 @@ export const DEFAULT_PROVIDERS: ProviderConfig = {
     "https://overpass.nchc.org.tw/api/interpreter",
   ],
   geocoderEndpoint: "https://nominatim.openstreetmap.org",
-  apiEndpoint: "",
+  apiEndpoint: "https://ninja-ops-guy-compass-api.vercel.app/api/dispensaries",
 };
 
 export const SEARCH_RADII_MILES = [10, 25, 50];

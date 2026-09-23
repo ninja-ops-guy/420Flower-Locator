@@ -1,0 +1,46 @@
+name: One-time dependency remediation
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/update-deps-once.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  remediate:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: dispensary-compass-app-specification
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: dispensary-compass-app-specification/package-lock.json
+      - name: Upgrade vulnerable build dependencies
+        run: npm install --save-dev vite@7.3.6
+      - name: Verify audit
+        run: npm audit --audit-level=high
+      - name: Verify production build
+        run: npm run check
+      - name: Commit deterministic dependency update
+        working-directory: .
+        shell: bash
+        run: |
+          set -euo pipefail
+          if git diff --quiet -- dispensary-compass-app-specification/package.json dispensary-compass-app-specification/package-lock.json; then
+            echo "No dependency changes required."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add dispensary-compass-app-specification/package.json dispensary-compass-app-specification/package-lock.json
+          git commit -m "Remediate Vite and esbuild security advisories"
+          git push origin HEAD:main

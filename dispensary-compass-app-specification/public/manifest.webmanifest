@@ -1,0 +1,19 @@
+{
+  "name": "COMPASS — Nearest Dispensary Finder",
+  "short_name": "COMPASS",
+  "description": "Compass points to the nearest cannabis dispensary using OpenStreetMap community data.",
+  "start_url": ".",
+  "scope": ".",
+  "display": "standalone",
+  "background_color": "#0e100e",
+  "theme_color": "#0d5c43",
+  "orientation": "any",
+  "icons": [
+    {
+      "src": "./icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

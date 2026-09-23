@@ -17,7 +17,7 @@
   <p class="muted">Effective September 23, 2026</p>
 
   <div class="card">
-    <strong>Current production behavior:</strong> COMPASS does not require an account, does not run advertising analytics, and does not intentionally maintain a COMPASS-owned history of your precise location.
+    <strong>Current production behavior:</strong> COMPASS does not require an account, does not run advertising analytics, and does not intentionally maintain a COMPASS-owned history of your precise location. Nearby-business discovery prefers a COMPASS-controlled gateway using a coarse search center; exact distance and bearing calculations remain in your browser.
   </div>
 
   <h2>Location</h2>
@@ -27,13 +27,13 @@
   <p>The app may store theme preference, provider configuration, cached points of interest, and recent search metadata in your browser so it can start faster and degrade more gracefully when connectivity is poor.</p>
 
   <h2>External map infrastructure</h2>
-  <p>COMPASS currently uses OpenStreetMap tiles and public Overpass infrastructure. Requests to those services are governed by their own policies and may reveal network metadata such as your IP address. Map queries may contain location coordinates needed to return nearby results.</p>
+  <p>COMPASS uses OpenStreetMap tiles for maps. Nearby-business discovery prefers the COMPASS API, which receives a search center rounded to approximately 0.02 degrees rather than the browser's exact GPS fix, then queries OpenStreetMap/Overpass data. Exact distance and bearing are recomputed locally in the browser. If the controlled API is unavailable, the application may fall back to public Overpass infrastructure for continuity; that fallback can receive the coordinates needed to perform the search. External infrastructure is governed by its own policies and may receive network metadata such as your IP address.</p>
 
   <h2>Accounts, payments, and sales</h2>
   <p>The current consumer application has no user account system and does not sell cannabis, process cannabis payments, or place cannabis orders.</p>
 
   <h2>Future services</h2>
-  <p>If COMPASS later introduces a first-party API, merchant accounts, analytics, billing, or other data processing, this notice will be updated before those features become part of the production service.</p>
+  <p>COMPASS now operates a first-party POI gateway for coarse nearby searches. Merchant accounts, advertising analytics, billing, or other additional data processing are not part of the current consumer service. This notice will be updated before those features become part of production.</p>
 
   <h2>Questions</h2>
   <p>Use the project repository's public contact channels for privacy questions.</p>

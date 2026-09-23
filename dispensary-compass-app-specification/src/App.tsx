@@ -139,6 +139,7 @@ export default function App() {
   const [isDemo, setIsDemo] = useState(false);
   const [demoLabel, setDemoLabel] = useState<string | null>(null);
   const watchId = useRef<number | null>(null);
+  const locationRequestSeq = useRef(0);
 
   const stopWatch = useCallback(() => {
     if (watchId.current != null) { navigator.geolocation.clearWatch(watchId.current); watchId.current = null; }
@@ -160,6 +161,7 @@ export default function App() {
       return;
     }
 
+    const requestSeq = ++locationRequestSeq.current;
     setPerm("REQUESTING");
     setLocError("Waiting for iPhone location…");
     stopWatch();
@@ -169,7 +171,7 @@ export default function App() {
     let pendingOneShots = 2;
 
     const acceptFix = (p: GeolocationPosition) => {
-      if (denied) return;
+      if (requestSeq !== locationRequestSeq.current || denied) return;
       hasFix = true;
       setPerm("GRANTED");
       setLocError(null);
@@ -179,6 +181,7 @@ export default function App() {
     };
 
     const fail = (e: GeolocationPositionError, source: string) => {
+      if (requestSeq !== locationRequestSeq.current) return;
       if (e.code === e.PERMISSION_DENIED) {
         denied = true;
         stopWatch();
@@ -220,6 +223,7 @@ export default function App() {
   }, [applyFix, stopWatch]);
 
   const useDemo = useCallback((lat: number, lon: number, label: string) => {
+    locationRequestSeq.current += 1;
     stopWatch();
     didAuto.current = false;
     setPerm("GRANTED");
@@ -592,7 +596,7 @@ export default function App() {
                   Foreground location only — while the app is open. No account, no history, no background tracking. Exact distance and bearing stay on-device; the controlled search gateway receives only a coarse nearby-search center when available.
                 </p>
                 <div className="mt-6 flex flex-wrap gap-3">
-                  <button onClick={requestLocation} className={cn("inline-flex items-center gap-2 rounded-2xl px-5 py-3.5 text-sm font-extrabold tracking-wide transition-transform hover:-translate-y-0.5", dark ? "bg-emerald-400 text-emerald-950 shadow-[0_16px_40px_-12px_rgba(52,211,153,0.6)]" : "bg-emerald-800 text-white shadow-[0_16px_40px_-12px_rgba(13,92,67,0.6)]")}>
+                  <button onClick={() => { locationRequestSeq.current += 1; setPerm("UNKNOWN"); setLocError(null); setFix(null); didAuto.current = false; requestLocation(); }} className={cn("inline-flex items-center gap-2 rounded-2xl px-5 py-3.5 text-sm font-extrabold tracking-wide transition-transform hover:-translate-y-0.5", dark ? "bg-emerald-400 text-emerald-950 shadow-[0_16px_40px_-12px_rgba(52,211,153,0.6)]" : "bg-emerald-800 text-white shadow-[0_16px_40px_-12px_rgba(13,92,67,0.6)]")}>
                     <LocateFixed className="h-4 w-4" /> ENABLE LOCATION
                   </button>
                   <button onClick={() => useDemo(39.7392, -104.9903, "Denver, CO")} className={cn("inline-flex items-center gap-2 rounded-2xl border px-5 py-3.5 text-sm font-bold", dark ? "border-white/15 text-white/80 hover:bg-white/5" : "border-black/15 text-black/75 hover:bg-black/[0.04]")}>

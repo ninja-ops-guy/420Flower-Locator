@@ -3,6 +3,9 @@ name: Deploy COMPASS to GitHub Pages
 on:
   push:
     branches: [main]
+    paths:
+      - "dispensary-compass-app-specification/**"
+      - ".github/workflows/deploy-pages.yml"
   workflow_dispatch:
 
 permissions:
@@ -28,7 +31,7 @@ jobs:
           cache: npm
           cache-dependency-path: dispensary-compass-app-specification/package-lock.json
       - run: npm ci
-      - run: npm run build
+      - run: npm run check
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:

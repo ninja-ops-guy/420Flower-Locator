@@ -1,13 +1,14 @@
 import { Component, type ErrorInfo, type ReactNode } from "react";
 
 interface Props { children: ReactNode }
-interface State { failed: boolean }
+interface State { failed: boolean; message: string }
 
 export default class ErrorBoundary extends Component<Props, State> {
-  state: State = { failed: false };
+  state: State = { failed: false, message: "" };
 
-  static getDerivedStateFromError(): State {
-    return { failed: true };
+  static getDerivedStateFromError(error: Error): State {
+    const message = error instanceof Error && error.message ? error.message.slice(0, 240) : "Unknown render error";
+    return { failed: true, message };
   }
 
   componentDidCatch(error: Error, info: ErrorInfo) {
@@ -33,6 +34,9 @@ export default class ErrorBoundary extends Component<Props, State> {
           <h1 style={{ fontSize: 32, margin: "8px 0" }}>The interface hit an unexpected error.</h1>
           <p style={{ lineHeight: 1.6, color: "#cbd5cb" }}>
             Your location was not uploaded to a COMPASS account or profile. Reload the application to restart the local session.
+          </p>
+          <p style={{ marginTop: 12, fontFamily: "ui-monospace, SFMono-Regular, Menlo, monospace", fontSize: 12, color: "#9fb0a2", overflowWrap: "anywhere" }}>
+            error={this.state.message}
           </p>
           <button
             type="button"

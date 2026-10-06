@@ -177,3 +177,13 @@ for (const code of [2, 3]) {
     assert.equal(h.watches.length, 0);
   });
 }
+
+
+test("cached POIs are validated before GPS makes them renderable", () => {
+  assert.match(app, /Array\.isArray\(parsed\)/);
+  assert.match(app, /Number\.isFinite\(d\.latitude\)/);
+  assert.match(app, /Number\.isFinite\(d\.longitude\)/);
+  assert.match(app, /malformed\/legacy cache is ignored/);
+  assert.match(app, /Number\.isFinite\(p\.distanceMeters\)/);
+  assert.match(app, /Number\.isFinite\(p\.bearingDegrees\)/);
+});

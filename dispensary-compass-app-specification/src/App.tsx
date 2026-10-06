@@ -210,7 +210,7 @@ export default function App() {
         setGeoDiag((d) => ({ ...d, code: e.code, message: e.message || "geolocation_error", at: Date.now() }));
         if (e.code === e.PERMISSION_DENIED) {
           setPerm("DENIED");
-          setLocError("Safari reports location permission denied for this site. Open the page menu → Website Settings → Location and set Allow, then reload Safari and retry.");
+          setLocError(`Safari denied this geolocation request (code 1${e.message ? `: ${e.message}` : ""}). If Website Settings already shows Location: Allow, check iOS Settings → Privacy & Security → Location Services → Safari Websites, then reload and retry. Diagnostics are shown below.`);
         } else if (e.code === e.POSITION_UNAVAILABLE) {
           setPerm("UNKNOWN");
           setLocError("iPhone could not determine a location. Confirm Location Services are enabled for Safari Websites and try again.");
@@ -593,7 +593,7 @@ export default function App() {
         </nav>
 
         {/* LOCATION_REQUIRED */}
-        {phase === "LOCATION_REQUIRED" && (
+        {phase === "LOCATION_REQUIRED" && view !== "settings" && (
           <section className={cn("overflow-hidden rounded-[1.75rem] border", dark ? "border-white/10 bg-white/[0.03]" : "border-black/10 bg-white/85 shadow-xl")}>
             <div className="grid md:grid-cols-2">
               <div className="p-7 sm:p-10">
@@ -605,7 +605,7 @@ export default function App() {
                   Foreground location only — while the app is open. No account, no history, no background tracking. Exact distance and bearing stay on-device; the controlled search gateway receives only a coarse nearby-search center when available.
                 </p>
                 <div className="mt-6 flex flex-wrap gap-3">
-                  <button onClick={() => { locationRequestSeq.current += 1; setPerm("UNKNOWN"); setLocError(null); setFix(null); didAuto.current = false; requestLocation(); }} className={cn("inline-flex items-center gap-2 rounded-2xl px-5 py-3.5 text-sm font-extrabold tracking-wide transition-transform hover:-translate-y-0.5", dark ? "bg-emerald-400 text-emerald-950 shadow-[0_16px_40px_-12px_rgba(52,211,153,0.6)]" : "bg-emerald-800 text-white shadow-[0_16px_40px_-12px_rgba(13,92,67,0.6)]")}>
+                  <button onClick={() => { setLocError(null); setFix(null); didAuto.current = false; requestLocation(); }} className={cn("inline-flex items-center gap-2 rounded-2xl px-5 py-3.5 text-sm font-extrabold tracking-wide transition-transform hover:-translate-y-0.5", dark ? "bg-emerald-400 text-emerald-950 shadow-[0_16px_40px_-12px_rgba(52,211,153,0.6)]" : "bg-emerald-800 text-white shadow-[0_16px_40px_-12px_rgba(13,92,67,0.6)]")}>
                     <LocateFixed className="h-4 w-4" /> ENABLE LOCATION
                   </button>
                   <button onClick={() => useDemo(39.7392, -104.9903, "Denver, CO")} className={cn("inline-flex items-center gap-2 rounded-2xl border px-5 py-3.5 text-sm font-bold", dark ? "border-white/15 text-white/80 hover:bg-white/5" : "border-black/15 text-black/75 hover:bg-black/[0.04]")}>
@@ -615,6 +615,12 @@ export default function App() {
                 {locError && (
                   <div className={cn("mt-4 rounded-2xl border px-4 py-3 text-sm leading-relaxed", dark ? "border-amber-300/20 bg-amber-300/10 text-amber-100" : "border-amber-700/20 bg-amber-50 text-amber-950")}>
                     {locError}
+                  </div>
+                )}
+                {geoDiag.at && (
+                  <div className={cn("mt-3 rounded-2xl border px-4 py-3 font-mono2 text-[11px] leading-relaxed", dark ? "border-white/10 bg-black/30 text-white/60" : "border-black/10 bg-[#f7f3e8] text-black/60")}>
+                    geo-code={geoDiag.code ?? "—"} · geo-msg={geoDiag.message || "—"}<br />
+                    secure={geoDiag.secure ? "yes" : "no"} · standalone={geoDiag.standalone ? "yes" : "no"} · visibility={document.visibilityState}
                   </div>
                 )}
                 <div className={cn("mt-6 flex items-center gap-2 text-xs", dark ? "text-white/40" : "text-black/45")}>
@@ -641,7 +647,7 @@ export default function App() {
         )}
 
         {/* main app grid */}
-        {phase !== "LOCATION_REQUIRED" && (
+        {(phase !== "LOCATION_REQUIRED" || view === "settings") && (
           <main className="grid gap-4 lg:grid-cols-[400px_1fr]">
             {/* LEFT — compass column (always on lg, tab-gated on mobile) */}
             <div className={cn(view !== "compass" && "hidden lg:block")}>

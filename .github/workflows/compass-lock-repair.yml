@@ -1,0 +1,58 @@
+name: Temporary COMPASS lock repair
+
+on:
+  push:
+    branches: [fix/ios-location-settings-recovery]
+    paths: [.github/workflows/compass-lock-repair.yml]
+
+permissions:
+  contents: read
+
+jobs:
+  repair:
+    if: github.repository == 'ninja-ops-guy/420Flower-Locator' && github.ref == 'refs/heads/fix/ios-location-settings-recovery'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Regenerate lock only and verify dependency scope
+        working-directory: dispensary-compass-app-specification
+        run: |
+          npm install --package-lock-only --ignore-scripts
+          node --input-type=module <<'NODE'
+          import { readFileSync } from 'node:fs';
+          import assert from 'node:assert/strict';
+          const lock = JSON.parse(readFileSync('package-lock.json', 'utf8'));
+          assert.equal(lock.packages['node_modules/source-map-js'].version, '1.2.2');
+          for (const name of ['braces', 'micromatch', 'vite-plugin-singlefile']) {
+            assert.ok(!lock.packages[`node_modules/${name}`], `${name} must be removed`);
+          }
+          NODE
+      - name: Clean install, security audit, tests and production build
+        working-directory: dispensary-compass-app-specification
+        run: |
+          npm ci --ignore-scripts
+          npm audit --audit-level=high
+          npm run check
+      - name: Commit only the validated lock to the existing repair branch
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          lock=dispensary-compass-app-specification/package-lock.json
+          if git diff --quiet -- "$lock"; then exit 0; fi
+          test "$(git diff --name-only | wc -l)" -eq 1
+          test "$(git diff --name-only)" = "$lock"
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add -- "$lock"
+          git commit -m 'fix(deps): lock audited toolchain without vulnerable brace matching'
+          git -c 'credential.helper=!f() { printf "username=x-access-token\npassword=%s\n" "$GH_TOKEN"; }; f' push origin HEAD:refs/heads/fix/ios-location-settings-recovery

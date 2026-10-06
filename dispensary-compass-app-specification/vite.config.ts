@@ -30,6 +30,8 @@ function offlineShell(): Plugin {
       assets.sort();
       const shell = ["./", "./manifest.webmanifest", "./icon.svg", ...assets];
       const digest = createHash("sha256");
+      // Cache-handling repairs must also invalidate any old, polluted shell.
+      digest.update(readFileSync(path.join(__dirname, "public/sw.js")));
       for (const name of shell) {
         digest.update(name).update("\0");
         digest.update(readFileSync(path.join(dist, name === "./" ? "index.html" : name)));
@@ -48,7 +50,7 @@ function offlineShell(): Plugin {
 
       // The post-deployment check verifies these exact served bytes, rather
       // than accepting an old page just because its title still matches.
-      const names = ["index.html", "sw.js", "manifest.webmanifest", "icon.svg", ...assets.map((name) => name.slice(2))];
+      const names = ["index.html", "sw.js", "manifest.webmanifest", "icon.svg", "location-check.html", ...assets.map((name) => name.slice(2))];
       const files = Object.fromEntries(names.map((name) => [name,
         createHash("sha256").update(readFileSync(path.join(dist, name))).digest("hex"),
       ]));

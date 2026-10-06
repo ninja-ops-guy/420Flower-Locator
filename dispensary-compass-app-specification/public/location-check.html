@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="referrer" content="no-referrer">
+  <meta name="robots" content="noindex,nofollow">
+  <title>COMPASS — Location access check</title>
+  <style>
+    :root { color-scheme: dark; font: 17px/1.55 system-ui,sans-serif; background:#111714; color:#edf4ef; }
+    body { max-width:660px; margin:0 auto; padding:32px 20px 70px; }
+    h1 { font-size:2rem; line-height:1.15; margin-bottom:18px; }
+    .eyebrow { color:#8ce0b6; letter-spacing:.12em; font-size:.8rem; }
+    p { color:#cad6ce; }
+    button,a { touch-action:manipulation; }
+    button { width:100%; padding:17px; margin:12px 0; border:0; border-radius:14px; font:700 1rem system-ui; background:#29d997; color:#092c1d; }
+    button:disabled { opacity:.6; }
+    a { color:#8ce0b6; }
+    pre { white-space:pre-wrap; overflow-wrap:anywhere; padding:18px; border:1px solid #405347; border-radius:14px; font:13px/1.7 ui-monospace,monospace; }
+    #status { padding:16px; border-left:3px solid #29d997; }
+    .secondary { background:transparent; color:#d8e6dd; border:1px solid #405347; }
+    small { display:block; color:#a7b8ad; }
+  </style>
+</head>
+<body>
+  <div class="eyebrow">COMPASS · INDEPENDENT CHECK · V1</div>
+  <h1>Can this browser provide a location?</h1>
+  <p>This fresh page makes one direct browser request when you tap the button. It does not load Compass, React, maps, analytics, or continuous tracking.</p>
+  <p>The request uses standard accuracy. No change to Precise Location is needed for this test. A successful position is discarded without reading, displaying, or saving its coordinates.</p>
+  <button id="test" type="button">TEST LOCATION ACCESS</button>
+  <p id="status" role="status" aria-live="polite">Ready. No location has been requested.</p>
+  <pre id="report" aria-label="Location check diagnostics"></pre>
+  <small>The report contains permission and execution details, not coordinates. Browser permission status alone cannot identify every iOS restriction.</small>
+  <button id="reload" class="secondary" type="button">Reload this check</button>
+  <p><a href="./">Return to Compass</a></p>
+  <noscript>JavaScript must be enabled to run the location check.</noscript>
+  <script id="location-check-script">
+  (() => {
+    "use strict";
+    const button = document.getElementById("test");
+    const status = document.getElementById("status");
+    const report = document.getElementById("report");
+    const data = { test: "COMPASS_LOCATION_CHECK_1", result: "NOT_RUN", secure: window.isSecureContext,
+      topLevel: window.top === window, visibility: document.visibilityState,
+      geolocationAvailable: typeof navigator.geolocation?.getCurrentPosition === "function",
+      policy: "not_exposed", browserPermission: "not_queried",
+      serviceWorkerControlled: Boolean(navigator.serviceWorker?.controller),
+      userActivation: null, request: null, elapsedMs: null, code: null, message: "" };
+    let used = false, active = true, finished = false, timer = null, started = 0;
+    function policy() {
+      try {
+        const value = document.permissionsPolicy ?? document.featurePolicy;
+        return typeof value?.allowsFeature === "function" ? (value.allowsFeature("geolocation") ? "allowed" : "blocked") : "not_exposed";
+      } catch { return "unavailable"; }
+    }
+    function render() { report.textContent = JSON.stringify(data, null, 2); }
+    function permissionAfterResult() {
+      try {
+        if (typeof navigator.permissions?.query !== "function") { data.browserPermission = "not_exposed"; render(); return; }
+        navigator.permissions.query({ name: "geolocation" }).then((value) => {
+          if (!active) return;
+          data.browserPermission = value.state;
+          render();
+        }).catch(() => { if (active) { data.browserPermission = "unavailable"; render(); } });
+      } catch { data.browserPermission = "unavailable"; render(); }
+    }
+    function finish(result, message, code, raw = "") {
+      if (!active || finished) return;
+      finished = true;
+      window.clearTimeout(timer);
+      data.result = result; data.code = code; data.message = raw;
+      data.elapsedMs = Math.max(0, Math.round(performance.now() - started));
+      data.visibility = document.visibilityState;
+      status.textContent = message;
+      render();
+      permissionAfterResult();
+    }
+    data.policy = policy(); render();
+    button.addEventListener("click", () => {
+      if (used || !active) return;
+      used = true; button.disabled = true; started = performance.now();
+      data.userActivation = navigator.userActivation?.isActive ?? "not_exposed";
+      data.visibility = document.visibilityState; data.policy = policy();
+      if (!data.secure) { finish("INSECURE", "This document is not a secure context; no request was made.", null); return; }
+      if (!data.geolocationAvailable) { finish("UNAVAILABLE", "This browser does not expose geolocation; no request was made.", null); return; }
+      if (data.policy === "blocked") { finish("POLICY_BLOCKED", "The document policy blocks geolocation; no request was made.", null); return; }
+      if (data.visibility !== "visible") { finish("NOT_VISIBLE", "Bring this page to the foreground and reload the check.", null); return; }
+      data.result = "REQUESTING";
+      data.request = { enableHighAccuracy: false, maximumAge: 0, timeout: 20000 };
+      status.textContent = "Waiting for the browser. Respond to a location prompt if one appears."; render();
+      timer = window.setTimeout(() => {
+        if (!active || finished) return;
+        data.result = "NO_CALLBACK_YET";
+        status.textContent = "The browser has not replied yet. This is not a permission-denied result. You may reload this check; no second request will start automatically.";
+        render();
+      }, 45000);
+      // No await, permission preflight, app framework, or watch before this call.
+      try {
+        navigator.geolocation.getCurrentPosition(
+          () => finish("SUCCESS", "A position was delivered. Its coordinates were not read or saved. This fresh-page request works; compare it with Compass.", 0),
+          (error) => finish(error.code === 1 ? "DENIED" : error.code === 2 ? "POSITION_UNAVAILABLE" : error.code === 3 ? "TIMEOUT" : "ERROR",
+            error.code === 1 ? "This independent request was also denied. The failure occurs without Compass's React or map code; the exact browser/OS cause is still unconfirmed."
+              : "The browser could not deliver a position. The raw error is in the report below.", error.code, String(error.message ?? "")),
+          data.request
+        );
+      } catch (error) { finish("THREW", "The browser request threw an exception; see the report.", null, String(error?.message ?? error)); }
+    });
+    document.getElementById("reload").addEventListener("click", () => window.location.reload());
+    window.addEventListener("pagehide", () => { active = false; window.clearTimeout(timer); });
+    window.addEventListener("pageshow", (event) => {
+      if (event.persisted) { button.disabled = true; status.textContent = "Returned from another page. Reload this check for a fresh result."; }
+    });
+  })();
+  </script>
+</body>
+</html>

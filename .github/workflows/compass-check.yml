@@ -1,0 +1,37 @@
+name: Check COMPASS pull request
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "dispensary-compass-app-specification/**"
+      - ".github/workflows/compass-check.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: compass-check-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: dispensary-compass-app-specification
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: dispensary-compass-app-specification/package-lock.json
+      - run: npm ci
+      - name: Dependency security audit
+        run: npm audit --audit-level=high
+      - name: Typecheck, regression tests, and production build
+        run: npm run check

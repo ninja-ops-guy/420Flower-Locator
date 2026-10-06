@@ -374,7 +374,24 @@ export default function App() {
 
   /* POIs */
   const [pois, setPois] = useState<Dispensary[]>(() => {
-    try { const raw = localStorage.getItem(LS_POIS); if (raw) return JSON.parse(raw) as Dispensary[]; } catch { /* noop */ }
+    try {
+      const raw = localStorage.getItem(LS_POIS);
+      if (raw) {
+        const parsed: unknown = JSON.parse(raw);
+        if (Array.isArray(parsed)) {
+          // Cache is untrusted continuity data. Older app versions or partial
+          // writes must never become render-time authority after GPS succeeds.
+          return parsed.filter((p): p is Dispensary => {
+            if (!p || typeof p !== "object") return false;
+            const d = p as Partial<Dispensary>;
+            return typeof d.id === "string"
+              && Number.isFinite(d.latitude) && Number.isFinite(d.longitude)
+              && typeof d.osmId === "number" && Number.isFinite(d.osmId)
+              && (d.osmType === "node" || d.osmType === "way" || d.osmType === "relation");
+          });
+        }
+      }
+    } catch { /* malformed/legacy cache is ignored */ }
     return [];
   });
   const [meta, setMeta] = useState<{ at: number; center: { lat: number; lon: number }; radiusMiles: number; endpoint: string } | null>(() => {
@@ -473,11 +490,13 @@ export default function App() {
     // from appearing while permission/GPS is still unresolved.
     if (!fix) return [];
     return pois
+      .filter((p) => Number.isFinite(p.latitude) && Number.isFinite(p.longitude))
       .map((p) => ({
         ...p,
         distanceMeters: haversineMeters(fix.lat, fix.lon, p.latitude, p.longitude),
         bearingDegrees: bearingDegrees(fix.lat, fix.lon, p.latitude, p.longitude),
       }))
+      .filter((p) => Number.isFinite(p.distanceMeters) && Number.isFinite(p.bearingDegrees))
       .sort((a, b) => a.distanceMeters - b.distanceMeters);
   }, [pois, fix]);
 

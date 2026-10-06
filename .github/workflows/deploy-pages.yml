@@ -25,6 +25,8 @@ jobs:
         working-directory: dispensary-compass-app-specification
     steps:
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -51,8 +53,17 @@ jobs:
 
   smoke:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     needs: deploy
+    permissions:
+      contents: read
     steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
       - name: Verify public application
         shell: bash
         run: |
@@ -69,5 +80,7 @@ jobs:
           done
           echo "Public COMPASS smoke test failed."
           exit 1
+      - name: Verify deployed commit and live asset hashes
+        run: node dispensary-compass-app-specification/scripts/verify-live.mjs
 
-# deployment generation: 2
+# deployment generation: 3

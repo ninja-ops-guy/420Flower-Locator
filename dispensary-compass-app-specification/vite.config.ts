@@ -45,6 +45,18 @@ function offlineShell(): Plugin {
       writeFileSync(swPath, source
         .replace(cachePattern, `const CACHE = "compass-shell-v4-${id}";`)
         .replace(shellPattern, `const SHELL = ${JSON.stringify(shell)};`));
+
+      // The post-deployment check verifies these exact served bytes, rather
+      // than accepting an old page just because its title still matches.
+      const names = ["index.html", "sw.js", "manifest.webmanifest", "icon.svg", ...assets.map((name) => name.slice(2))];
+      const files = Object.fromEntries(names.map((name) => [name,
+        createHash("sha256").update(readFileSync(path.join(dist, name))).digest("hex"),
+      ]));
+      writeFileSync(path.join(dist, "build.json"), JSON.stringify({
+        revision: process.env.GITHUB_SHA ?? "local",
+        cache: `compass-shell-v4-${id}`,
+        files,
+      }, null, 2) + "\n");
     },
   };
 }

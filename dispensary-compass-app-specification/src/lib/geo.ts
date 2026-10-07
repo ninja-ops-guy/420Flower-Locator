@@ -158,3 +158,10 @@ export function roughAge(ms: number): string {
   const h = Math.floor(m / 60);
   return `${h}h ago`;
 }
+
+/** Reject malformed coordinates before passing them to map geometry. */
+export function validCoordinates(lat: unknown, lon: unknown): boolean {
+  return typeof lat === "number" && typeof lon === "number"
+    && Number.isFinite(lat) && Number.isFinite(lon)
+    && Math.abs(lat) <= 90 && Math.abs(lon) <= 180;
+}

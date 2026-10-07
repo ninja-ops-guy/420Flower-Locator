@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
+  validCoordinates,
   angularDelta,
   bearingDegrees,
   cardinalFromBearing,
@@ -41,4 +42,13 @@ test("opening-hours logic is conservative for complex OSM schedules", () => {
     label: "HOURS AVAILABLE · VERIFY BEFORE TRAVEL",
     open: null,
   });
+});
+
+test("map coordinates reject invalid data and preserve zero and boundary values", () => {
+  for (const pair of [[NaN, NaN], [Infinity, 0], [0, -Infinity], [91, 0], [0, 181], [undefined, 1], [null, 0], ["41", "-73"]]) {
+    assert.equal(validCoordinates(...pair), false);
+  }
+  for (const pair of [[0, 0], [90, 180], [-90, -180], [41.2, -73.1]]) {
+    assert.equal(validCoordinates(...pair), true);
+  }
 });

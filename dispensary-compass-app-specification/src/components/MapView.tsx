@@ -1,7 +1,7 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
-import type { Dispensary } from "../lib/geo";
+import { validCoordinates, type Dispensary } from "../lib/geo";
 
 interface Props {
   user: { lat: number; lon: number } | null;
@@ -23,6 +23,10 @@ export default function MapView({ user, nearest, all, dark, tiles, darkTiles, ac
   const layerRef = useRef<L.TileLayer | null>(null);
   const markersRef = useRef<L.LayerGroup | null>(null);
 
+  const [sizeRevision, setSizeRevision] = useState(0);
+  const validUser = user && validCoordinates(user.lat, user.lon) ? user : null;
+  const validNearest = nearest && validCoordinates(nearest.latitude, nearest.longitude) ? nearest : null;
+
   // init map once
   useEffect(() => {
     if (!elRef.current || mapRef.current) return;
@@ -31,7 +35,7 @@ export default function MapView({ user, nearest, all, dark, tiles, darkTiles, ac
       attributionControl: false,
       scrollWheelZoom: true,
     }).setView(
-      user ? [user.lat, user.lon] : nearest ? [nearest.latitude, nearest.longitude] : [39.7392, -104.9903],
+      validUser ? [validUser.lat, validUser.lon] : validNearest ? [validNearest.latitude, validNearest.longitude] : [39.7392, -104.9903],
       13
     );
     L.control.attribution({ prefix: false }).addTo(map);
@@ -78,10 +82,17 @@ export default function MapView({ user, nearest, all, dark, tiles, darkTiles, ac
     const map = mapRef.current;
     const group = markersRef.current;
     if (!map || !group) return;
+    // Mobile compass mode keeps this map mounted under display:none. Leaflet's
+    // flight math divides by viewport size, so never move a zero-size map.
+    const container = map.getContainer();
+    if (!container.clientWidth || !container.clientHeight) return;
+    map.stop();
+    map.invalidateSize({ animate: false, pan: false });
     group.clearLayers();
+    const visiblePoints = all.filter((d) => validCoordinates(d.latitude, d.longitude));
     const bounds: L.LatLngExpression[] = [];
 
-    if (user) {
+    if (validUser) {
       const pulse = L.divIcon({
         className: "",
         html: `<div style="position:relative;width:28px;height:28px">
@@ -91,15 +102,15 @@ export default function MapView({ user, nearest, all, dark, tiles, darkTiles, ac
         iconSize: [28, 28],
         iconAnchor: [14, 14],
       });
-      const m = L.marker([user.lat, user.lon], { icon: pulse, zIndexOffset: 100 }).bindTooltip("YOU", {
+      const m = L.marker([validUser.lat, validUser.lon], { icon: pulse, zIndexOffset: 100 }).bindTooltip("YOU", {
         permanent: false,
         direction: "top",
       });
       m.addTo(group);
-      bounds.push([user.lat, user.lon]);
+      bounds.push([validUser.lat, validUser.lon]);
     }
 
-    all.slice(0, 60).forEach((d) => {
+    visiblePoints.slice(0, 60).forEach((d) => {
       const isNearest = nearest?.id === d.id;
       const isActive = activeId === d.id;
       const size = isNearest ? 34 : 26;
@@ -114,14 +125,14 @@ export default function MapView({ user, nearest, all, dark, tiles, darkTiles, ac
       mk.bindTooltip(d.name ?? "Cannabis dispensary", { direction: "top", offset: [0, -14] });
       mk.addTo(group);
     });
-    all.forEach((d) => bounds.push([d.latitude, d.longitude]));
+    visiblePoints.forEach((d) => bounds.push([d.latitude, d.longitude]));
 
     // line user → nearest
-    if (user && nearest) {
+    if (validUser && validNearest) {
       const line = L.polyline(
         [
-          [user.lat, user.lon],
-          [nearest.latitude, nearest.longitude],
+          [validUser.lat, validUser.lon],
+          [validNearest.latitude, validNearest.longitude],
         ],
         { color: dark ? "#34d399" : "#0d5c43", weight: 2.5, dashArray: "7 8", opacity: 0.85 }
       );
@@ -129,19 +140,24 @@ export default function MapView({ user, nearest, all, dark, tiles, darkTiles, ac
     }
 
     if (bounds.length >= 2) {
-      try {
-        map.flyToBounds(L.latLngBounds(bounds as unknown as L.LatLngTuple[]), { padding: [44, 44], maxZoom: 14, duration: 0.9 });
-      } catch { /* noop */ }
+      map.fitBounds(L.latLngBounds(bounds as L.LatLngTuple[]), { padding: [44, 44], maxZoom: 14, animate: false });
     } else if (bounds.length === 1) {
-      map.flyTo(bounds[0] as L.LatLngExpression, 14, { duration: 0.9 });
+      map.setView(bounds[0], 14, { animate: false });
     }
-  }, [user, all, nearest, dark, activeId, onSelect]);
+  }, [user, all, nearest, dark, activeId, onSelect, sizeRevision]);
 
-  // invalidate size after mount (tab switches)
+  // Refit on tab visibility and responsive layout changes, not a fixed timer.
   useEffect(() => {
-    const t = setTimeout(() => mapRef.current?.invalidateSize(), 350);
-    return () => clearTimeout(t);
-  }, [dark]);
+    const element = elRef.current;
+    if (!element) return;
+    const observer = new ResizeObserver(() => {
+      if (element.clientWidth > 0 && element.clientHeight > 0) {
+        setSizeRevision((revision) => revision + 1);
+      }
+    });
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, []);
 
   return (
     <div className="relative h-full w-full overflow-hidden">
